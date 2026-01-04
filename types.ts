@@ -13,6 +13,13 @@ export enum AlarmType {
 
 export type VibrationPattern = 'continuous' | 'heartbeat' | 'rapid' | 'staccato';
 
+export interface AppSettings {
+  batterySaver: boolean;
+  disableWakeLock: boolean;
+  lowFiUI: boolean;
+  disableHaptics: boolean;
+}
+
 export interface Alarm {
   id: string;
   time: string; // Format "HH:mm"
