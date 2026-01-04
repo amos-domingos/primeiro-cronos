@@ -23,10 +23,10 @@ export interface Alarm {
   type: AlarmType;
   customDays: number[]; // 0 (Sunday) - 6 (Saturday)
   
-  // Settings
-  durationMinutes: number;
+  // Settings (Migrado para segundos para precisão)
+  durationSeconds: number;
   snoozeEnabled: boolean;
-  snoozeMinutes: number;
+  snoozeSeconds: number;
   
   // Sound Settings
   soundType: SoundType;

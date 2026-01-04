@@ -21,6 +21,13 @@ export const AlarmList: React.FC<AlarmListProps> = ({ alarms, onToggle, onDelete
     );
   }
 
+  const formatSecondsLabel = (s: number) => {
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return rs > 0 ? `${m}m${rs}s` : `${m}m`;
+  };
+
   return (
     <div className="grid gap-4 pb-24">
       {alarms.map((alarm) => (
@@ -41,10 +48,10 @@ export const AlarmList: React.FC<AlarmListProps> = ({ alarms, onToggle, onDelete
               </div>
               <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
                  <span className={`flex items-center gap-1 ${alarm.snoozeEnabled ? 'text-emerald-400/80' : 'text-slate-600'}`}>
-                   {alarm.snoozeEnabled ? `Soneca: ${alarm.snoozeMinutes}m` : 'Sem Soneca'}
+                   {alarm.snoozeEnabled ? `Soneca: ${formatSecondsLabel(alarm.snoozeSeconds)}` : 'Sem Soneca'}
                  </span>
                  <span className="text-slate-500">
-                   Duração: {alarm.durationMinutes}m
+                   Duração: {formatSecondsLabel(alarm.durationSeconds)}
                  </span>
                  <span className="flex items-center gap-1 text-primary/80">
                    <Music size={10} /> {alarm.soundName || 'Clássico'}

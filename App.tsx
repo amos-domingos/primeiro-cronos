@@ -127,7 +127,7 @@ function App() {
     setAlarms(updatedAlarms);
     
     if (enabled) {
-      const alarm = updatedAlarms.find(a => a.id === id);
+      const alarm = updatedAlarms.find(a => id === a.id);
       if (alarm) {
         const timeRemaining = getTimeUntilNextOccurrence(alarm);
         setToastMessage(`Reativado! Toca em ${timeRemaining}`);
@@ -142,7 +142,7 @@ function App() {
 
   const handleSnooze = () => {
     if (!activeAlarm) return;
-    const snoozeDuration = activeAlarm.snoozeMinutes * 60 * 1000;
+    const snoozeDuration = (activeAlarm.snoozeSeconds || 300) * 1000;
     const wakeTime = Date.now() + snoozeDuration;
     setSnoozeSessions([...snoozeSessions, {
       alarmId: activeAlarm.id,

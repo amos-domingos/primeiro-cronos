@@ -1,8 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { Alarm } from '../types';
-// Add Music to the imports from lucide-react
-import { BellOff, Timer, Smartphone, Volume2, Music } from 'lucide-react';
+import { BellOff, Timer, Volume2, Music } from 'lucide-react';
 import { audioService } from '../services/audioService';
 
 interface ActiveAlarmOverlayProps {
@@ -25,7 +23,8 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, o
     audioService.startAlarm(type, uri, vibrate, pattern, vol, fade);
     
     const timer = setInterval(() => setTime(new Date()), 1000);
-    const autoStopTimer = setTimeout(() => onDismiss(), alarm.durationMinutes * 60 * 1000);
+    const duration = (alarm.durationSeconds || 300) * 1000;
+    const autoStopTimer = setTimeout(() => onDismiss(), duration);
 
     return () => {
       audioService.stopAlarm();
@@ -33,6 +32,13 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, o
       clearTimeout(autoStopTimer);
     };
   }, [alarm, onDismiss]);
+
+  const formatSecondsLabel = (s: number) => {
+    if (s < 60) return `${s} seg`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return rs > 0 ? `${m}m ${rs}s` : `${m} min`;
+  };
 
   const pulseClass = alarm.vibrationEnabled ? 'animate-pulse' : '';
 
@@ -75,7 +81,7 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, o
               className="flex items-center justify-center gap-3 w-full py-5 bg-slate-900 text-slate-400 border border-slate-800 rounded-3xl transition-all hover:text-white hover:border-slate-600 active:scale-95"
             >
               <Timer className="w-6 h-6" />
-              <span className="text-xl font-bold">Soneca ({alarm.snoozeMinutes} min)</span>
+              <span className="text-xl font-bold">Soneca ({formatSecondsLabel(alarm.snoozeSeconds)})</span>
             </button>
           )}
         </div>

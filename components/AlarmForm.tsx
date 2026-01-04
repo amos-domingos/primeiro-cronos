@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Alarm, AlarmType, SoundType, VibrationPattern } from '../types';
 import { generateId } from '../utils/alarmUtils';
-import { X, Check, Music, Upload, Play, Square, Calendar, Waves, Volume2, TrendingUp, CloudRain, Bird, Wind } from 'lucide-react';
+import { X, Check, Music, Upload, Play, Square, Timer, Volume2, TrendingUp, CloudRain, Bird, Wind, Clock, Bell } from 'lucide-react';
 import { Switch } from './ui/Switch';
 import { audioService } from '../services/audioService';
 
@@ -20,12 +20,37 @@ const PRESETS = [
   { id: 'lofi', name: 'Lofi', icon: Music },
 ];
 
+const WEEK_DAYS = [
+  { label: 'Dom', value: 0 },
+  { label: 'Seg', value: 1 },
+  { label: 'Ter', value: 2 },
+  { label: 'Qua', value: 3 },
+  { label: 'Qui', value: 4 },
+  { label: 'Sex', value: 5 },
+  { label: 'Sáb', value: 6 },
+];
+
 export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCancel }) => {
   const [time, setTime] = useState(initialData?.time || '07:00');
   const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
   const [label, setLabel] = useState(initialData?.label || '');
   const [type, setType] = useState<AlarmType>(initialData?.type || AlarmType.DAILY);
+  const [customDays, setCustomDays] = useState<number[]>(initialData?.customDays || [0, 1, 2, 3, 4, 5, 6]);
   
+  // Snooze & Duration Settings (Segundos)
+  const [snoozeEnabled, setSnoozeEnabled] = useState(initialData?.snoozeEnabled ?? true);
+  // Compatibilidade: se vier do storage antigo em minutos, converte
+  const [snoozeSeconds, setSnoozeSeconds] = useState(() => {
+    if (initialData?.snoozeSeconds) return initialData.snoozeSeconds;
+    // @ts-ignore - Handle legacy field
+    return (initialData?.snoozeMinutes || 5) * 60;
+  });
+  const [durationSeconds, setDurationSeconds] = useState(() => {
+    if (initialData?.durationSeconds) return initialData.durationSeconds;
+    // @ts-ignore - Handle legacy field
+    return (initialData?.durationMinutes || 5) * 60;
+  });
+
   // Sound & Volume State
   const [soundType, setSoundType] = useState<SoundType>(initialData?.soundType || 'preset');
   const [soundUri, setSoundUri] = useState(initialData?.soundUri || 'classic');
@@ -43,11 +68,32 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
     return () => audioService.stopAlarm();
   }, []);
 
-  useEffect(() => {
-    if (isPreviewing) {
-      audioService.startAlarm(soundType, soundUri, vibrationEnabled, vibrationPattern, volume, 0);
+  const formatSecondsLabel = (s: number) => {
+    if (s < 60) return `${s} seg`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return rs > 0 ? `${m}m ${rs}s` : `${m} min`;
+  };
+
+  const toggleDay = (day: number) => {
+    let newDays;
+    if (customDays.includes(day)) {
+      newDays = customDays.filter(d => d !== day);
+    } else {
+      newDays = [...customDays, day].sort();
     }
-  }, [soundType, soundUri, isPreviewing, vibrationEnabled, vibrationPattern, volume]);
+    setCustomDays(newDays);
+    setType(AlarmType.CUSTOM);
+  };
+
+  const handleTypeSelect = (newType: AlarmType) => {
+    setType(newType);
+    if (newType === AlarmType.DAILY) {
+      setCustomDays([0, 1, 2, 3, 4, 5, 6]);
+    } else if (newType === AlarmType.ODD_DAYS || newType === AlarmType.EVEN_DAYS || newType === AlarmType.ONCE) {
+      setCustomDays([]);
+    }
+  };
 
   const togglePreview = () => {
     if (isPreviewing) {
@@ -81,17 +127,21 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     audioService.stopAlarm(); 
+    
+    let finalType = type;
+    if (type === AlarmType.CUSTOM && customDays.length === 0) finalType = AlarmType.ONCE;
+
     onSave({
       id: initialData?.id || generateId(),
       time,
-      date: [AlarmType.ONCE, AlarmType.WEEKLY, AlarmType.MONTHLY, AlarmType.YEARLY].includes(type) ? date : undefined,
+      date: [AlarmType.ONCE, AlarmType.WEEKLY, AlarmType.MONTHLY, AlarmType.YEARLY].includes(finalType) ? date : undefined,
       label,
       isEnabled: true,
-      type,
-      customDays: initialData?.customDays || [],
-      durationMinutes: initialData?.durationMinutes || 5,
-      snoozeEnabled: initialData?.snoozeEnabled ?? true,
-      snoozeMinutes: initialData?.snoozeMinutes || 10,
+      type: finalType,
+      customDays: (finalType === AlarmType.CUSTOM || finalType === AlarmType.DAILY) ? customDays : [],
+      durationSeconds,
+      snoozeEnabled,
+      snoozeSeconds,
       soundType,
       soundUri,
       soundName,
@@ -114,31 +164,99 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-slate-700">
+          {/* Hora Principal */}
           <div className="flex flex-col items-center gap-6">
             <input
               type="time" required value={time} onChange={(e) => setTime(e.target.value)}
-              className="bg-transparent text-6xl font-mono font-bold text-white focus:outline-none border-b-2 border-slate-600 focus:border-primary p-2 text-center w-full max-w-[220px]"
+              className="bg-transparent text-7xl font-mono font-bold text-white focus:outline-none border-b-2 border-slate-600 focus:border-primary p-2 text-center w-full max-w-[240px]"
             />
             
-            <div className="flex flex-wrap justify-center gap-2">
-              {[
-                { l: 'Diário', v: AlarmType.DAILY },
-                { l: 'Ímpares', v: AlarmType.ODD_DAYS },
-                { l: 'Pares', v: AlarmType.EVEN_DAYS },
-                { l: 'Uma vez', v: AlarmType.ONCE },
-              ].map((opt) => (
-                <button
-                  key={opt.v} type="button" onClick={() => setType(opt.v as AlarmType)}
-                  className={`py-2 px-4 rounded-full text-xs font-bold border transition-all ${
-                    type === opt.v ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
-                  }`}
-                >
-                  {opt.l}
-                </button>
-              ))}
+            {/* Opções de Recorrência Rápida */}
+            <div className="flex flex-col gap-4 w-full">
+              <div className="flex flex-wrap justify-center gap-2">
+                {[
+                  { l: 'Diário', v: AlarmType.DAILY },
+                  { l: 'Ímpares', v: AlarmType.ODD_DAYS },
+                  { l: 'Pares', v: AlarmType.EVEN_DAYS },
+                  { l: 'Uma vez', v: AlarmType.ONCE },
+                ].map((opt) => (
+                  <button
+                    key={opt.v} type="button" onClick={() => handleTypeSelect(opt.v as AlarmType)}
+                    className={`py-2 px-4 rounded-xl text-xs font-bold border transition-all ${
+                      type === opt.v ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
+                    }`}
+                  >
+                    {opt.l}
+                  </button>
+                ))}
+              </div>
+
+              {/* Seletor de Dias da Semana */}
+              <div className="flex justify-between items-center bg-slate-900/40 p-3 rounded-2xl border border-slate-700/30">
+                {WEEK_DAYS.map((day) => {
+                  const isSelected = (type === AlarmType.DAILY && customDays.includes(day.value)) || (type === AlarmType.CUSTOM && customDays.includes(day.value));
+                  const isEffectivelyActive = [AlarmType.DAILY, AlarmType.CUSTOM].includes(type);
+                  
+                  return (
+                    <button
+                      key={day.value}
+                      type="button"
+                      onClick={() => toggleDay(day.value)}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 ${
+                        isSelected && isEffectivelyActive
+                          ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105' 
+                          : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'
+                      } ${!isEffectivelyActive && isSelected ? 'opacity-40 grayscale' : ''}`}
+                    >
+                      {day.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
+          {/* Seção de Soneca e Duração - Agora com segundos */}
+          <div className="space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50">
+             <div className="flex items-center gap-2 text-primary mb-2">
+                <Timer size={20} />
+                <span className="text-xs font-black uppercase tracking-widest">Soneca e Duração</span>
+             </div>
+
+             <Switch 
+                label="Ativar Soneca" 
+                checked={snoozeEnabled} 
+                onChange={setSnoozeEnabled} 
+             />
+
+             {snoozeEnabled && (
+               <div className="space-y-2 animate-in slide-in-from-top-2 duration-300 pt-2">
+                  <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                      <span>Tempo de Soneca</span>
+                      <span className="text-primary">{formatSecondsLabel(snoozeSeconds)}</span>
+                  </div>
+                  <input 
+                      type="range" min="10" max="1800" step="10" value={snoozeSeconds} 
+                      onChange={(e) => setSnoozeSeconds(parseInt(e.target.value))}
+                      className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+               </div>
+             )}
+
+             <div className="space-y-2 pt-2 border-t border-slate-700/50">
+                <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                    <div className="flex items-center gap-1"><Clock size={12}/> Duração do Alarme</div>
+                    <span className="text-secondary">{formatSecondsLabel(durationSeconds)}</span>
+                </div>
+                <input 
+                    type="range" min="10" max="3600" step="10" value={durationSeconds} 
+                    onChange={(e) => setDurationSeconds(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-secondary"
+                />
+             </div>
+          </div>
+
+          {/* Seção de Som */}
           <div className="space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50">
              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-primary">
@@ -228,6 +346,17 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
           </div>
 
           <div className="space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50">
+             <div className="space-y-3">
+                <label className="text-[10px] font-black uppercase text-slate-500 flex items-center gap-1"><Bell size={12} /> Rótulo do Alarme</label>
+                <input 
+                  type="text" 
+                  value={label} 
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Ex: Trabalho, Academia..."
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-primary transition-colors"
+                />
+             </div>
+             
              <Switch label="Vibração Tátil" checked={vibrationEnabled} onChange={setVibrationEnabled} />
              {vibrationEnabled && (
                <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
