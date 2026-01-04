@@ -132,6 +132,96 @@ class AudioService {
         g.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
         o.connect(g); g.connect(this.masterGain!);
         o.start(now); o.stop(now + 0.1);
+      } else if (presetId === 'zen') {
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(220, now);
+        g.gain.setValueAtTime(0, now);
+        g.gain.linearRampToValueAtTime(0.4, now + 1.5);
+        g.gain.exponentialRampToValueAtTime(0.01, now + 4);
+        o.connect(g); g.connect(this.masterGain!);
+        o.start(now); o.stop(now + 4);
+      } else if (presetId === 'ocean') {
+        // Simulação de ondas com ruído rosa/branco modulado
+        const bufferSize = this.ctx!.sampleRate * 2;
+        const buffer = this.ctx!.createBuffer(1, bufferSize, this.ctx!.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        
+        const noise = this.ctx!.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+        
+        const filter = this.ctx!.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.exponentialRampToValueAtTime(1500, now + 2);
+        filter.frequency.exponentialRampToValueAtTime(400, now + 4);
+        
+        const g = this.ctx!.createGain();
+        g.gain.setValueAtTime(0.1, now);
+        g.gain.linearRampToValueAtTime(0.5, now + 2);
+        g.gain.linearRampToValueAtTime(0.1, now + 4);
+        
+        noise.connect(filter);
+        filter.connect(g);
+        g.connect(this.masterGain!);
+        noise.start(now);
+        noise.stop(now + 4.1);
+      } else if (presetId === 'birds') {
+        for (let i = 0; i < 3; i++) {
+          const t = now + i * 0.3;
+          const o = this.ctx!.createOscillator();
+          const g = this.ctx!.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(3000 + Math.random() * 1000, t);
+          o.frequency.exponentialRampToValueAtTime(5000, t + 0.1);
+          g.gain.setValueAtTime(0.2, t);
+          g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+          o.connect(g); g.connect(this.masterGain!);
+          o.start(t); o.stop(t + 0.2);
+        }
+      } else if (presetId === 'emergency') {
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(400, now);
+        o.frequency.linearRampToValueAtTime(1000, now + 0.25);
+        o.frequency.linearRampToValueAtTime(400, now + 0.5);
+        g.gain.setValueAtTime(0.3, now);
+        o.connect(g); g.connect(this.masterGain!);
+        o.start(now); o.stop(now + 0.5);
+      } else if (presetId === 'piano') {
+        const freqs = [329.63, 392.00, 440.00, 523.25]; // E4, G4, A4, C5
+        freqs.forEach((f, i) => {
+          const t = now + i * 0.4;
+          const o = this.ctx!.createOscillator();
+          const g = this.ctx!.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(f, t);
+          g.gain.setValueAtTime(0.4, t);
+          g.gain.exponentialRampToValueAtTime(0.01, t + 1);
+          o.connect(g); g.connect(this.masterGain!);
+          o.start(t); o.stop(t + 1);
+        });
+      } else if (presetId === 'retro_phone') {
+        const playRing = (t: number) => {
+          const o1 = this.ctx!.createOscillator();
+          const o2 = this.ctx!.createOscillator();
+          const g = this.ctx!.createGain();
+          o1.type = 'square'; o2.type = 'square';
+          o1.frequency.setValueAtTime(400, t);
+          o2.frequency.setValueAtTime(450, t);
+          g.gain.setValueAtTime(0.1, t);
+          g.gain.setValueAtTime(0.1, t + 0.4);
+          g.gain.setValueAtTime(0, t + 0.41);
+          o1.connect(g); o2.connect(g); g.connect(this.masterGain!);
+          o1.start(t); o1.stop(t + 0.5);
+          o2.start(t); o2.stop(t + 0.5);
+        };
+        playRing(now);
+        playRing(now + 0.6);
       } else { // classic
         const o = this.ctx.createOscillator();
         const g = this.ctx.createGain();
@@ -146,10 +236,19 @@ class AudioService {
 
     playTone();
     let interval = 1000;
-    if (presetId === 'digital') interval = 200;
-    if (presetId === 'crystals') interval = 2000;
-    if (presetId === 'radar') interval = 800;
-    if (presetId === 'alvorada') interval = 1500;
+    switch (presetId) {
+      case 'digital': interval = 200; break;
+      case 'crystals': interval = 2000; break;
+      case 'radar': interval = 800; break;
+      case 'alvorada': interval = 1500; break;
+      case 'zen': interval = 5000; break;
+      case 'ocean': interval = 4000; break;
+      case 'birds': interval = 3000; break;
+      case 'emergency': interval = 500; break;
+      case 'piano': interval = 3000; break;
+      case 'retro_phone': interval = 2500; break;
+      default: interval = 1000;
+    }
     this.oscillatorInterval = window.setInterval(playTone, interval);
   }
 

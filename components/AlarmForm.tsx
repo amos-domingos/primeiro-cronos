@@ -17,6 +17,12 @@ const SOUNDS = [
   { id: 'radar', name: 'Radar' },
   { id: 'crystals', name: 'Cristais' },
   { id: 'alvorada', name: 'Alvorada' },
+  { id: 'zen', name: 'Zen Meditação' },
+  { id: 'ocean', name: 'Ondas do Mar' },
+  { id: 'birds', name: 'Canto dos Pássaros' },
+  { id: 'piano', name: 'Piano Elétrico' },
+  { id: 'emergency', name: 'Sirene Alerta' },
+  { id: 'retro_phone', name: 'Telefone Antigo' },
 ];
 
 const WEEK_DAYS = [
@@ -194,9 +200,9 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                 <Music size={20} />
                 <span className="text-xs font-black uppercase tracking-widest">Som do Alarme</span>
              </div>
-             <div className="divide-y divide-slate-700/50 border border-slate-700/50 rounded-xl overflow-hidden bg-slate-800/30">
+             <div className="divide-y divide-slate-700/50 border border-slate-700/50 rounded-xl overflow-hidden bg-slate-800/30 max-h-[250px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
                 {SOUNDS.map((sound) => (
-                  <button key={sound.id} type="button" onClick={() => handleSoundSelect(sound.id, sound.name)} className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 transition-colors group">
+                  <button key={sound.id} type="button" onClick={() => handleSoundSelect(sound.id, sound.name)} className="w-full flex items-center justify-between p-4 hover:bg-slate-700/50 transition-colors group text-left">
                     <span className={`text-sm font-medium ${soundUri === sound.id ? 'text-primary' : 'text-slate-300'}`}>{sound.name}</span>
                     {soundUri === sound.id ? <Check size={18} className="text-primary" /> : <ChevronRight size={16} className="text-slate-600 group-hover:text-slate-400" />}
                   </button>
