@@ -1,11 +1,45 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Cronos - Despertador Inteligente</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      /* Melhora a rolagem em dispositivos móveis */
+      html, body {
+        height: 100%;
+        overscroll-behavior-y: none; /* Evita pull-to-refresh que pode travar a UI */
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      body {
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+
+      /* Remove o ícone de relógio nativo que sobrepõe os números no Chrome/Safari */
+      input[type="time"]::-webkit-calendar-picker-indicator {
+        display: none;
+        -webkit-appearance: none;
+      }
+      
+      /* Melhora a renderização da fonte mono para o relógio */
+      .font-mono {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Estilização da scrollbar para navegadores baseados em Webkit */
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      
+      .custom-scroll {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+    </style>
     <script>
       tailwind.config = {
         theme: {

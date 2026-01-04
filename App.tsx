@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Settings, Info, CloudCheck, HardDrive, AlertTriangle } from 'lucide-react';
+import { Plus, Settings, Info, HardDrive, AlertTriangle } from 'lucide-react';
 import { Alarm, SnoozeSession } from './types';
 import { checkAlarmCondition, getTimeUntilNextOccurrence } from './utils/alarmUtils';
 import { AlarmList } from './components/AlarmList';
@@ -35,7 +35,6 @@ function App() {
     if (storedSnoozes) {
       try {
         const parsedSnoozes: SnoozeSession[] = JSON.parse(storedSnoozes);
-        // Filtrar sonecas que já expiraram enquanto o app estava fechado
         const now = Date.now();
         const validSnoozes = parsedSnoozes.filter(s => s.snoozeUntil > now);
         setSnoozeSessions(validSnoozes);
@@ -44,6 +43,21 @@ function App() {
       }
     }
   }, []);
+
+  // Bloqueio de scroll do body quando modal está aberto
+  useEffect(() => {
+    if (isFormOpen || activeAlarm) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = 'auto';
+      document.body.style.touchAction = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.body.style.touchAction = 'auto';
+    };
+  }, [isFormOpen, activeAlarm]);
 
   // 2. Persist Data whenever it changes
   useEffect(() => {
@@ -78,7 +92,7 @@ function App() {
     const currentMinute = now.getMinutes();
     const currentSecond = now.getSeconds();
     
-    // Check Snoozes (Prioridade)
+    // Check Snoozes
     const activeSnoozeIndex = snoozeSessions.findIndex(s => s.snoozeUntil <= now.getTime());
     if (activeSnoozeIndex !== -1) {
       const session = snoozeSessions[activeSnoozeIndex];

@@ -39,7 +39,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   
   // Snooze & Duration Settings (Segundos)
   const [snoozeEnabled, setSnoozeEnabled] = useState(initialData?.snoozeEnabled ?? true);
-  // Compatibilidade: se vier do storage antigo em minutos, converte
   const [snoozeSeconds, setSnoozeSeconds] = useState(() => {
     if (initialData?.snoozeSeconds) return initialData.snoozeSeconds;
     // @ts-ignore - Handle legacy field
@@ -154,21 +153,28 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <form onSubmit={handleSubmit} className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+    <div 
+      className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-all animate-in fade-in duration-200"
+      style={{ touchAction: 'none' }} // Bloqueia scroll do background no overlay
+    >
+      <form 
+        onSubmit={handleSubmit} 
+        className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh] shadow-indigo-500/10"
+        style={{ touchAction: 'auto' }} // Permite toque no modal
+      >
+        <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50 flex-shrink-0">
           <h2 className="text-xl font-bold text-white tracking-tight">{initialData ? 'Editar Alarme' : 'Novo Alarme'}</h2>
           <button type="button" onClick={onCancel} className="text-slate-400 hover:text-white transition-colors p-2 hover:bg-slate-700 rounded-full">
             <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-slate-700">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-slate-700 custom-scroll">
           {/* Hora Principal */}
           <div className="flex flex-col items-center gap-6">
             <input
               type="time" required value={time} onChange={(e) => setTime(e.target.value)}
-              className="bg-transparent text-7xl font-mono font-bold text-white focus:outline-none border-b-2 border-slate-600 focus:border-primary p-2 text-center w-full max-w-[240px]"
+              className="bg-transparent text-7xl font-mono font-bold text-white focus:outline-none border-b-2 border-slate-600 focus:border-primary p-2 text-center w-full max-w-[280px] tracking-tighter"
             />
             
             {/* Opções de Recorrência Rápida */}
@@ -182,7 +188,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                 ].map((opt) => (
                   <button
                     key={opt.v} type="button" onClick={() => handleTypeSelect(opt.v as AlarmType)}
-                    className={`py-2 px-4 rounded-xl text-xs font-bold border transition-all ${
+                    className={`py-2 px-4 rounded-xl text-xs font-bold border transition-all active:scale-95 ${
                       type === opt.v ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'
                     }`}
                   >
@@ -202,7 +208,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                       key={day.value}
                       type="button"
                       onClick={() => toggleDay(day.value)}
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 ${
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-black transition-all border-2 active:scale-90 ${
                         isSelected && isEffectivelyActive
                           ? 'bg-primary border-primary text-white shadow-md shadow-primary/20 scale-105' 
                           : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600'
@@ -216,7 +222,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
             </div>
           </div>
 
-          {/* Seção de Soneca e Duração - Agora com segundos */}
+          {/* Seção de Soneca e Duração */}
           <div className="space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-slate-700/50">
              <div className="flex items-center gap-2 text-primary mb-2">
                 <Timer size={20} />
@@ -265,7 +271,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                 </div>
                 <button
                     type="button" onClick={togglePreview}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase transition-all active:scale-95 ${
                         isPreviewing ? 'bg-red-500/20 text-red-400' : 'bg-primary/20 text-primary hover:bg-primary/30'
                     }`}
                 >
@@ -296,7 +302,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                         {PRESETS.map(p => (
                             <button
                                 key={p.id} type="button" onClick={() => { setSoundUri(p.id); setSoundName(p.name); }}
-                                className={`py-3 px-1 rounded-xl border text-[10px] font-bold flex flex-col items-center gap-1 transition-all ${
+                                className={`py-3 px-1 rounded-xl border text-[10px] font-bold flex flex-col items-center gap-1 transition-all active:scale-95 ${
                                     soundUri === p.id ? 'bg-primary/10 border-primary text-primary' : 'bg-slate-800/50 border-slate-700 text-slate-500 hover:border-slate-600'
                                 }`}
                             >
@@ -365,7 +371,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                       {['continuous', 'heartbeat', 'rapid'].map(p => (
                           <button
                               key={p} type="button" onClick={() => setVibrationPattern(p as any)}
-                              className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${vibrationPattern === p ? 'bg-secondary/20 text-secondary border border-secondary shadow-sm shadow-secondary/10' : 'bg-slate-800 text-slate-500 hover:bg-slate-750'}`}
+                              className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all active:scale-95 ${vibrationPattern === p ? 'bg-secondary/20 text-secondary border border-secondary shadow-sm shadow-secondary/10' : 'bg-slate-800 text-slate-500 hover:bg-slate-750'}`}
                           >
                               {p === 'continuous' ? 'Fixo' : p === 'heartbeat' ? 'Pulso' : 'Alerta'}
                           </button>
@@ -376,7 +382,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
           </div>
         </div>
 
-        <div className="p-6 border-t border-slate-700 bg-slate-800/30">
+        <div className="p-6 border-t border-slate-700 bg-slate-800/30 flex-shrink-0">
           <button type="submit" className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest rounded-2xl flex items-center justify-center gap-2 shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95">
             <Check size={18} /> Salvar Alarme
           </button>

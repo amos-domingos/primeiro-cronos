@@ -11,6 +11,7 @@ export const Switch: React.FC<SwitchProps> = ({ checked, onChange, label }) => {
     <div className="flex items-center justify-between">
       {label && <span className="text-slate-300 font-medium">{label}</span>}
       <button
+        type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
