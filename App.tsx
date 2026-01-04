@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Settings, Info, HardDrive, AlertTriangle, BellRing, Battery, BatteryLow, Zap, ZapOff } from 'lucide-react';
+import { Plus, Settings, Info, HardDrive, AlertTriangle, BellRing, Battery, BatteryLow, Zap, ZapOff, Mail } from 'lucide-react';
 import { Alarm, SnoozeSession, AppSettings } from './types';
 import { checkAlarmCondition, getTimeUntilNextOccurrence } from './utils/alarmUtils';
 import { AlarmList } from './components/AlarmList';
@@ -68,22 +68,31 @@ function App() {
     }
   }, []);
 
+  // Lógica de Despertar Tela (Wake Up)
   useEffect(() => {
     if (activeAlarm) {
       document.body.style.overflow = 'hidden';
       document.body.style.touchAction = 'none';
       
-      // Só pede wake lock se não estiver desativado nas configs de economia
+      // Forçar Fullscreen para acordar a tela no Android APK
+      try {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } catch (e) {}
+
+      // Solicitar Wake Lock para manter a tela ligada
       if (!settings.disableWakeLock && !settings.batterySaver) {
         requestWakeLock();
       }
       
       if (document.hidden && notificationsEnabled) {
-        const n = new Notification("CRONOS: ALARME!", {
-          body: activeAlarm.label || "Hora de acordar!",
+        const n = new Notification("CRONOS BY Amós Domingos", {
+          body: activeAlarm.label || "ALERTA: Hora de acordar!",
           icon: "/favicon.ico",
           tag: "alarm-active",
-          requireInteraction: true
+          requireInteraction: true,
+          silent: false
         });
         n.onclick = () => {
           window.focus();
@@ -96,6 +105,11 @@ function App() {
         document.body.style.touchAction = 'auto';
       }
       releaseWakeLock();
+      
+      // Sair do fullscreen ao encerrar alarme
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   }, [activeAlarm, notificationsEnabled, isFormOpen, isSettingsOpen, settings]);
 
@@ -103,6 +117,13 @@ function App() {
     if ('wakeLock' in navigator) {
       try {
         wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        // Re-solicitar se a visibilidade mudar (proteção contra suspensão do Android)
+        const handleVisibilityChange = async () => {
+          if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
+            wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
       } catch (err) {
         console.error(`${err.name}, ${err.message}`);
       }
@@ -228,6 +249,13 @@ function App() {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleSendSuggestion = () => {
+    const email = "amosdomingos@gmail.com";
+    const subject = encodeURIComponent("Sugestão - App Cronos");
+    const body = encodeURIComponent("Olá Amós, tenho uma sugestão para o Cronos:\n\n");
+    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+  };
+
   return (
     <div className={`min-h-screen bg-dark text-slate-100 font-sans pb-20 transition-opacity duration-1000 ${settings.batterySaver ? 'opacity-90' : 'opacity-100'}`}>
       <header className="sticky top-0 z-30 bg-dark/80 backdrop-blur-md border-b border-slate-800">
@@ -303,8 +331,8 @@ function App() {
       {/* Modal de Configurações de Bateria/Sistema */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-surface w-full max-w-md rounded-3xl shadow-2xl border border-slate-700 overflow-hidden">
-            <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+          <div className="bg-surface w-full max-w-md rounded-3xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Battery className="text-primary" size={20} />
                 <h2 className="text-xl font-bold text-white">Sistema & Energia</h2>
@@ -314,7 +342,7 @@ function App() {
               </button>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 overflow-y-auto custom-scroll">
               <div className="p-4 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
                 <Switch 
                   label="Economia de Bateria" 
@@ -349,9 +377,26 @@ function App() {
                 <p className="text-[10px] text-slate-500 leading-tight">Desativa efeitos táteis na interface para poupar o motor de vibração.</p>
               </div>
 
+              {/* Seção de Feedback */}
+              <div className="pt-6 border-t border-slate-700">
+                <h3 className="text-[10px] font-black uppercase text-slate-500 mb-3 tracking-widest">Suporte e Feedback</h3>
+                <button 
+                  onClick={handleSendSuggestion}
+                  className="w-full p-4 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-2xl flex items-center gap-4 transition-all active:scale-95 text-left group"
+                >
+                  <div className="p-2 bg-primary/10 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                    <Mail size={20} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-white">Enviar Sugestão</div>
+                    <div className="text-[10px] text-slate-400">amosdomingos@gmail.com</div>
+                  </div>
+                </button>
+              </div>
+
               <button 
                 onClick={() => setIsSettingsOpen(false)}
-                className="w-full py-4 bg-primary text-white font-bold rounded-2xl mt-4"
+                className="w-full py-4 bg-primary text-white font-bold rounded-2xl mt-4 flex-shrink-0"
               >
                 Concluir
               </button>
