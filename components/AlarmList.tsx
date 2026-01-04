@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alarm } from '../types';
+import { Alarm, AlarmType } from '../types';
 import { getNextOccurrenceText } from '../utils/alarmUtils';
 import { Trash2, Edit2, Clock, Music, Smartphone } from 'lucide-react';
 import { Switch } from './ui/Switch';

@@ -11,7 +11,6 @@ export enum AlarmType {
   CUSTOM = 'custom'
 }
 
-export type SoundType = 'preset' | 'file';
 export type VibrationPattern = 'continuous' | 'heartbeat' | 'rapid' | 'staccato';
 
 export interface Alarm {
@@ -23,17 +22,16 @@ export interface Alarm {
   type: AlarmType;
   customDays: number[]; // 0 (Sunday) - 6 (Saturday)
   
-  // Settings (Migrado para segundos para precisão)
+  // Settings
   durationSeconds: number;
   snoozeEnabled: boolean;
   snoozeSeconds: number;
   
   // Sound Settings
-  soundType: SoundType;
   soundUri: string;
   soundName: string;
   volume: number; // 0 to 1
-  fadeDurationSeconds: number; // 0 to 60 (Volume progressivo)
+  fadeDurationSeconds: number; // 0 to 60
   
   // Vibration Settings
   vibrationEnabled: boolean;
