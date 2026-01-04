@@ -10,59 +10,87 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
   const month = now.getMonth(); // 0-11
   const year = now.getFullYear();
 
-  // Helper to parse reference date "YYYY-MM-DD" ensuring local timezone handling
   const getRefDateParts = (dateStr?: string) => {
     if (!dateStr) return null;
     const [y, m, d] = dateStr.split('-').map(Number);
-    return { y, m: m - 1, d }; // Month is 0-indexed in JS Date
+    return { y, m: m - 1, d }; 
   };
 
   const ref = getRefDateParts(alarm.date);
 
   switch (alarm.type) {
     case AlarmType.ONCE:
-      // If no date set, assume it runs today/tomorrow logic (standard handled by time check)
-      // If date is set, strictly check date
       if (!ref) return true;
       return ref.d === dayOfMonth && ref.m === month && ref.y === year;
-
     case AlarmType.DAILY:
       return true;
-
     case AlarmType.WEEKDAYS:
       return dayOfWeek >= 1 && dayOfWeek <= 5;
-
     case AlarmType.WEEKENDS:
       return dayOfWeek === 0 || dayOfWeek === 6;
-
     case AlarmType.ODD_DAYS:
       return dayOfMonth % 2 !== 0;
-
     case AlarmType.EVEN_DAYS:
       return dayOfMonth % 2 === 0;
-
     case AlarmType.WEEKLY:
       if (!ref) return false;
-      // Check if today is the same day of week as the reference date
       const refDateObj = new Date(ref.y, ref.m, ref.d);
       return dayOfWeek === refDateObj.getDay();
-
     case AlarmType.MONTHLY:
       if (!ref) return false;
-      // Check if today is the same day of month
       return dayOfMonth === ref.d;
-
     case AlarmType.YEARLY:
       if (!ref) return false;
-      // Check if today is same day and month
       return dayOfMonth === ref.d && month === ref.m;
-
     case AlarmType.CUSTOM:
       return alarm.customDays.includes(dayOfWeek);
-      
     default:
       return false;
   }
+};
+
+/**
+ * Calcula o tempo restante até o alarme disparar
+ */
+export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
+  const now = new Date();
+  const [targetHours, targetMinutes] = alarm.time.split(':').map(Number);
+  
+  // Testamos os próximos 366 dias para encontrar a próxima data válida
+  for (let i = 0; i <= 366; i++) {
+    const testDate = new Date(now);
+    testDate.setDate(now.getDate() + i);
+    testDate.setHours(targetHours, targetMinutes, 0, 0);
+
+    // Se a data de teste for no passado (hoje, mas o horário já passou), pula para o próximo dia
+    if (testDate.getTime() <= now.getTime()) continue;
+
+    // Verifica se o alarme estaria ativo nesta data específica
+    if (checkAlarmCondition(alarm, testDate)) {
+      const diffMs = testDate.getTime() - now.getTime();
+      
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const days = Math.floor(totalMinutes / (60 * 24));
+      const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+      const minutes = totalMinutes % 60;
+
+      const parts = [];
+      if (days > 0) parts.push(`${days} ${days === 1 ? 'dia' : 'dias'}`);
+      if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
+      if (minutes > 0 || (days === 0 && hours === 0)) {
+         parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
+      }
+
+      if (parts.length === 0) return 'menos de um minuto';
+      
+      // Formatação final: "X dias, Y horas e Z minutos"
+      if (parts.length === 1) return parts[0];
+      const lastPart = parts.pop();
+      return `${parts.join(', ')} e ${lastPart}`;
+    }
+  }
+
+  return 'muito tempo';
 };
 
 export const formatTime = (date: Date): string => {

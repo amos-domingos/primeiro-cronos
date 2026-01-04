@@ -32,6 +32,8 @@ export interface Alarm {
   soundType: SoundType;
   soundUri: string;
   soundName: string;
+  volume: number; // 0 to 1
+  fadeDurationSeconds: number; // 0 to 60 (Volume progressivo)
   
   // Vibration Settings
   vibrationEnabled: boolean;
