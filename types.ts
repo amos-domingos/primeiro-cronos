@@ -8,7 +8,8 @@ export enum AlarmType {
   YEARLY = 'yearly',
   ODD_DAYS = 'odd_days',
   EVEN_DAYS = 'even_days',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
+  SHIFT = 'shift'
 }
 
 export type VibrationPattern = 'continuous' | 'heartbeat' | 'rapid' | 'staccato';
@@ -23,11 +24,12 @@ export interface AppSettings {
 export interface Alarm {
   id: string;
   time: string; // Format "HH:mm"
-  date?: string; // Format "YYYY-MM-DD"
+  date?: string; // Format "YYYY-MM-DD" (Used as start date for SHIFT)
   label: string;
   isEnabled: boolean;
   type: AlarmType;
   customDays: number[]; // 0 (Sunday) - 6 (Saturday)
+  intervalDays?: number; // Used for SHIFT type (e.g., 2 for 12x36)
   
   // Settings
   durationSeconds: number;

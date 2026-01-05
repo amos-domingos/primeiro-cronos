@@ -2,77 +2,81 @@
 <html lang="pt-BR" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
     <title>Cronos - Despertador Inteligente</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <style>
-      /* Melhora a rolagem em dispositivos móveis */
-      html, body {
-        height: 100%;
-        overscroll-behavior-y: none; /* Evita pull-to-refresh que pode travar a UI */
+      :root {
         -webkit-tap-highlight-color: transparent;
       }
-      
       body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background-color: #020617;
+        color: #f8fafc;
+        margin: 0;
         overflow-x: hidden;
-        overflow-y: auto;
       }
-
-      /* Remove o ícone de relógio nativo que sobrepõe os números no Chrome/Safari */
-      input[type="time"]::-webkit-calendar-picker-indicator {
-        display: none;
-        -webkit-appearance: none;
+      .font-mono { font-family: 'JetBrains Mono', monospace; }
+      .glass {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
       }
-      
-      /* Melhora a renderização da fonte mono para o relógio */
-      .font-mono {
-        font-variant-numeric: tabular-nums;
+      .glass-dark {
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(25px);
+        -webkit-backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
-
-      /* Estilização da scrollbar para navegadores baseados em Webkit */
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;
+      @keyframes gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
-      
-      .custom-scroll {
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
+      .bg-animate {
+        background: radial-gradient(circle at top right, #1e1b4b, #020617, #0f172a);
+        background-size: 200% 200%;
+        animation: gradient 15s ease infinite;
+      }
+      /* Custom Scrollbar */
+      .custom-scroll::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 10px;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.3);
+        border-radius: 10px;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.6);
       }
     </style>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
-            },
-            colors: {
-              primary: '#6366f1', // Indigo 500
-              secondary: '#ec4899', // Pink 500
-              dark: '#0f172a', // Slate 900
-              surface: '#1e293b', // Slate 800
-            }
-          }
-        }
-      }
-    </script>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.460.0",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
-</head>
-  <body class="bg-dark text-slate-100 antialiased selection:bg-secondary selection:text-white">
-    <div id="root"></div>
-    <!-- Script principal para carregar o app -->
+  </head>
+  <body class="h-full bg-animate">
+    <div id="root" class="h-full"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

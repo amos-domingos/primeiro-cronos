@@ -1,7 +1,7 @@
 import React from 'react';
-import { Alarm, AlarmType } from '../types';
+import { Alarm } from '../types';
 import { getNextOccurrenceText } from '../utils/alarmUtils';
-import { Trash2, Edit2, Clock, Music, Smartphone } from 'lucide-react';
+import { Trash2, Clock, Music, ChevronRight } from 'lucide-react';
 import { Switch } from './ui/Switch';
 
 interface AlarmListProps {
@@ -14,77 +14,61 @@ interface AlarmListProps {
 export const AlarmList: React.FC<AlarmListProps> = ({ alarms, onToggle, onDelete, onEdit }) => {
   if (alarms.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-slate-500">
-        <Clock size={48} className="mb-4 opacity-50" />
-        <p className="text-lg">Nenhum alarme configurado</p>
+      <div className="flex flex-col items-center justify-center py-32 text-slate-500">
+        <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
+           <Clock size={32} className="opacity-20" />
+        </div>
+        <p className="text-xs font-black uppercase tracking-[0.2em] opacity-30">Nenhum alarme definido</p>
       </div>
     );
   }
 
-  const formatSecondsLabel = (s: number) => {
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    return rs > 0 ? `${m}m${rs}s` : `${m}m`;
-  };
-
   return (
-    <div className="grid gap-4 pb-24">
+    <div className="grid gap-6">
       {alarms.map((alarm) => (
         <div
           key={alarm.id}
-          className={`relative group bg-surface border border-slate-700 rounded-2xl p-5 transition-all hover:border-slate-600 ${
-            !alarm.isEnabled ? 'opacity-60 grayscale-[0.5]' : ''
+          onClick={() => onEdit(alarm)}
+          className={`group relative glass rounded-[40px] p-8 transition-all active:scale-[0.97] cursor-pointer ${
+            !alarm.isEnabled ? 'opacity-30' : 'active-glow border-white/20'
           }`}
         >
-          <div className="flex items-start justify-between">
-            <div className="cursor-pointer flex-1" onClick={() => onEdit(alarm)}>
-              <div className="text-4xl font-mono font-medium text-white tracking-tighter">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <span className="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-2 block">
+                {alarm.label || 'DESPERTAR'}
+              </span>
+              
+              <div className="text-6xl font-mono font-bold tracking-tighter leading-none mb-6">
                 {alarm.time}
               </div>
-              <div className="text-sm text-slate-400 mt-1 font-medium flex items-center gap-2">
-                {alarm.label && <span className="text-white">{alarm.label} •</span>}
-                <span>{getNextOccurrenceText(alarm)}</span>
-              </div>
-              <div className="text-xs text-slate-500 mt-3 flex flex-wrap gap-x-4 gap-y-1">
-                 <span className={`flex items-center gap-1 ${alarm.snoozeEnabled ? 'text-emerald-400/80' : 'text-slate-600'}`}>
-                   {alarm.snoozeEnabled ? `Soneca: ${formatSecondsLabel(alarm.snoozeSeconds)}` : 'Sem Soneca'}
-                 </span>
-                 <span className="text-slate-500">
-                   Duração: {formatSecondsLabel(alarm.durationSeconds)}
-                 </span>
-                 <span className="flex items-center gap-1 text-primary/80">
-                   <Music size={10} /> {alarm.soundName || 'Clássico'}
-                 </span>
-                 {(alarm.vibrationEnabled ?? true) && (
-                   <span className="flex items-center gap-1 text-primary/80" title="Vibração Ativada">
-                     <Smartphone size={10} />
-                   </span>
-                 )}
+              
+              <div className="flex flex-wrap items-center gap-3">
+                 <div className="px-4 py-1.5 bg-white/5 rounded-full border border-white/5 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                    {getNextOccurrenceText(alarm)}
+                 </div>
+                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <Music size={12} /> {alarm.soundName}
+                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4 pl-4">
+            <div className="flex flex-col items-end justify-between h-full gap-8" onClick={(e) => e.stopPropagation()}>
               <Switch
                 checked={alarm.isEnabled}
                 onChange={(val) => onToggle(alarm.id, val)}
               />
+              <button 
+                onClick={() => onDelete(alarm.id)}
+                className="p-3 text-slate-600 hover:text-red-400 transition-colors"
+              >
+                <Trash2 size={20} />
+              </button>
             </div>
           </div>
           
-          <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                  onClick={() => onEdit(alarm)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg"
-              >
-                  <Edit2 size={18} />
-              </button>
-              <button 
-                  onClick={() => onDelete(alarm.id)}
-                  className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded-lg"
-              >
-                  <Trash2 size={18} />
-              </button>
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0">
+             <ChevronRight size={24} className="text-white/20" />
           </div>
         </div>
       ))}

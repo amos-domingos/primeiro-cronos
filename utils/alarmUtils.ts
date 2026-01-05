@@ -44,31 +44,36 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
       return dayOfMonth === ref.d && month === ref.m;
     case AlarmType.CUSTOM:
       return alarm.customDays.includes(dayOfWeek);
+    case AlarmType.SHIFT:
+      if (!ref || !alarm.intervalDays) return false;
+      const startDate = new Date(ref.y, ref.m, ref.d);
+      startDate.setHours(0,0,0,0);
+      const currentDate = new Date(year, month, dayOfMonth);
+      currentDate.setHours(0,0,0,0);
+      
+      const diffTime = currentDate.getTime() - startDate.getTime();
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) return false;
+      return diffDays % alarm.intervalDays === 0;
     default:
       return false;
   }
 };
 
-/**
- * Calcula o tempo restante até o alarme disparar
- */
 export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
   const now = new Date();
   const [targetHours, targetMinutes] = alarm.time.split(':').map(Number);
   
-  // Testamos os próximos 366 dias para encontrar a próxima data válida
   for (let i = 0; i <= 366; i++) {
     const testDate = new Date(now);
     testDate.setDate(now.getDate() + i);
     testDate.setHours(targetHours, targetMinutes, 0, 0);
 
-    // Se a data de teste for no passado (hoje, mas o horário já passou), pula para o próximo dia
     if (testDate.getTime() <= now.getTime()) continue;
 
-    // Verifica se o alarme estaria ativo nesta data específica
     if (checkAlarmCondition(alarm, testDate)) {
       const diffMs = testDate.getTime() - now.getTime();
-      
       const totalMinutes = Math.floor(diffMs / (1000 * 60));
       const days = Math.floor(totalMinutes / (60 * 24));
       const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
@@ -82,19 +87,12 @@ export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
       }
 
       if (parts.length === 0) return 'menos de um minuto';
-      
-      // Formatação final: "X dias, Y horas e Z minutos"
       if (parts.length === 1) return parts[0];
       const lastPart = parts.pop();
       return `${parts.join(', ')} e ${lastPart}`;
     }
   }
-
   return 'muito tempo';
-};
-
-export const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 };
 
 export const getNextOccurrenceText = (alarm: Alarm): string => {
@@ -113,6 +111,7 @@ export const getNextOccurrenceText = (alarm: Alarm): string => {
     case AlarmType.WEEKENDS: return 'Fins de semana';
     case AlarmType.ODD_DAYS: return 'Dias ímpares';
     case AlarmType.EVEN_DAYS: return 'Dias pares';
+    case AlarmType.SHIFT: return `Escala (${alarm.intervalDays} em ${alarm.intervalDays} dias)`;
     case AlarmType.WEEKLY: return alarm.date ? `Semanal (ref: ${formatDateBR(alarm.date)})` : 'Semanalmente';
     case AlarmType.MONTHLY: return alarm.date ? `Todo dia ${alarm.date.split('-')[2]}` : 'Mensalmente';
     case AlarmType.YEARLY: return alarm.date ? `Todo ${formatDateBR(alarm.date)}` : 'Anualmente';
