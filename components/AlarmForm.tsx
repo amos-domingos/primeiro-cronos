@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Alarm, AlarmType } from '../types';
 import { generateId } from '../utils/alarmUtils';
-import { X, Repeat, Bell, Timer, Calendar, Check, Music, Volume2, Play, Square, Hash } from 'lucide-react';
+import { X, Repeat, Bell, Timer, Calendar, Check, Music, Volume2, Play, Square, Info, Tag, Search } from 'lucide-react';
 import { Switch } from './ui/Switch';
 import { audioService } from '../services/audioService';
 
@@ -33,6 +33,12 @@ const PRESET_SOUNDS = [
   { id: 'birds', name: 'Pássaros da Manhã' },
 ];
 
+const LABEL_PRESETS = [
+  'Acordar', 'Trabalho', 'Almoço', 'Remédio', 'Escola', 'Treino', 'Reunião', 
+  'Estudar', 'Descanso', 'Jantar', 'Café', 'Pagar Conta', 'Mercado', 
+  'Ligar p/ Alguém', 'Aniversário', 'Evento Especial', 'Meditação', 'Silêncio'
+];
+
 export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCancel }) => {
   const [time, setTime] = useState(initialData?.time || '07:00');
   const [type, setType] = useState<AlarmType>(initialData?.type || AlarmType.DAILY);
@@ -47,6 +53,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   const [soundUri, setSoundUri] = useState(initialData?.soundUri || 'classic');
   const [soundName, setSoundName] = useState(initialData?.soundName || 'Beep Clássico');
   const [isPreviewing, setIsPreviewing] = useState<string | null>(null);
+  const [isLabelFocused, setIsLabelFocused] = useState(false);
 
   useEffect(() => {
     return () => audioService.stopAlarm();
@@ -73,10 +80,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
       setIsPreviewing(uri);
       audioService.startAlarm(uri, false, 'continuous', volume, 0);
       setTimeout(() => {
-        if (isPreviewing === uri) {
-          audioService.stopAlarm();
-          setIsPreviewing(null);
-        }
+        setIsPreviewing((current) => current === uri ? null : current);
       }, 5000);
     }
   };
@@ -85,7 +89,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
     e.preventDefault();
     audioService.stopAlarm();
     
-    // Se for diário mas não todos os dias, vira CUSTOM
     let finalType = type;
     if (type === AlarmType.DAILY && customDays.length < 7) {
       finalType = AlarmType.CUSTOM;
@@ -117,40 +120,71 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/95 backdrop-blur-2xl p-0 sm:p-4">
       <form onSubmit={handleSubmit} className="bg-[#020617] w-full max-w-lg rounded-t-[40px] sm:rounded-[40px] shadow-2xl border-t border-white/5 flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
         
-        {/* Header */}
-        <div className="px-8 py-6 flex justify-between items-center border-b border-white/5 bg-[#020617]/50 backdrop-blur-xl sticky top-0 z-10">
+        <div className="px-8 py-6 flex justify-between items-center border-b border-white/5 bg-[#020617]/50 backdrop-blur-md z-10">
           <div>
             <span className="text-[10px] font-black text-primary tracking-[0.4em] uppercase">Configuração</span>
-            <h2 className="text-xl font-bold tracking-tight">Ajustar Despertador</h2>
+            <h2 className="text-xl font-bold tracking-tight">Ajustar Alarme</h2>
           </div>
           <button type="button" onClick={onCancel} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-slate-400 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scroll pb-20">
+        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scroll pb-10">
           
-          {/* Time & Label */}
           <div className="flex flex-col items-center">
             <input
               type="time" required value={time} onChange={(e) => setTime(e.target.value)}
               className="bg-transparent text-8xl font-mono font-bold text-white focus:outline-none text-center tracking-tighter w-full appearance-none"
             />
-            <div className="mt-6 w-full px-8">
-              <input 
-                type="text" value={label} onChange={(e) => setLabel(e.target.value)} 
-                placeholder="Título do alarme" 
-                className="w-full bg-transparent border-none text-center text-xl font-medium text-slate-300 placeholder:text-slate-800 focus:ring-0 p-0" 
-              />
-              <div className="h-[2px] w-12 bg-primary/40 mx-auto mt-2 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+            
+            {/* Campo de Nome com Lista de Sugestões Suspensa */}
+            <div className="mt-6 w-full relative px-4">
+              <div className="flex flex-col items-center space-y-2">
+                <input 
+                  type="text" 
+                  value={label} 
+                  onChange={(e) => setLabel(e.target.value)} 
+                  onFocus={() => setIsLabelFocused(true)}
+                  onBlur={() => setTimeout(() => setIsLabelFocused(false), 200)}
+                  placeholder="Nome do alarme..." 
+                  className="w-full bg-transparent border-none text-center text-xl font-medium text-slate-200 placeholder:text-slate-800 focus:ring-0 p-0" 
+                />
+                <div className={`h-[2px] transition-all duration-300 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.5)] ${isLabelFocused ? 'w-24 bg-primary' : 'w-12 bg-primary/40'}`}></div>
+              </div>
+
+              {/* Lista de Sugestões (Rolagem Vertical) */}
+              {isLabelFocused && (
+                <div className="absolute top-full left-4 right-4 z-30 mt-4 bg-slate-900/90 backdrop-blur-2xl border border-white/10 rounded-[32px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.5)] animate-in fade-in slide-in-from-top-4 duration-300">
+                  <div className="flex items-center gap-2 mb-4 px-2">
+                    <Tag size={12} className="text-primary" />
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Sugestões Rápidas</span>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto custom-scroll space-y-1 pr-1">
+                    {LABEL_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setLabel(preset)}
+                        className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all flex items-center justify-between group ${
+                          label === preset 
+                          ? 'bg-primary text-white shadow-lg shadow-primary/20' 
+                          : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                        }`}
+                      >
+                        {preset}
+                        {label === preset && <Check size={16} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Frequência & Dias */}
           <section className="bg-white/5 rounded-[32px] p-6 space-y-6 border border-white/5">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-widest">
-              <Repeat size={14} /> Ciclo de Repetição
+              <Repeat size={14} /> Frequência
             </div>
             
             <div className="grid grid-cols-2 gap-2">
@@ -173,11 +207,10 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
               ))}
             </div>
 
-            {/* Dias da semana (Somente Diário/Personalizado) */}
             {(type === AlarmType.DAILY || type === AlarmType.CUSTOM) && (
               <div className="pt-6 border-t border-white/5 animate-in fade-in zoom-in-95">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-5 text-center">Ativar nestes dias:</p>
-                <div className="flex justify-between items-center">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-5 text-center">Dias da Semana:</p>
+                <div className="flex justify-between items-center px-1">
                   {WEEK_DAYS.map((day) => (
                     <button
                       key={day.value}
@@ -186,7 +219,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                       className={`w-10 h-10 rounded-full text-xs font-black transition-all ${
                         customDays.includes(day.value)
                           ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110'
-                          : 'bg-slate-800 text-slate-600 border border-white/5 hover:bg-slate-700'
+                          : 'bg-slate-800 text-slate-600 border border-white/5'
                       }`}
                     >
                       {day.label}
@@ -196,12 +229,11 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
               </div>
             )}
 
-            {/* Lógica de Plantão (Intervalo + Data Inicial) */}
             {type === AlarmType.SHIFT && (
               <div className="pt-6 border-t border-white/5 space-y-8 animate-in slide-in-from-top-4">
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar size={12} className="text-primary" /> Data de Início do Plantão
+                    <Calendar size={12} className="text-primary" /> Primeiro Dia do Plantão
                   </label>
                   <input 
                     type="date" 
@@ -214,9 +246,9 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
                 <div className="space-y-4 bg-primary/5 p-6 rounded-3xl border border-primary/10">
                   <div className="flex justify-between items-center">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">Intervalo de Dias</span>
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest">Ciclo de Repetição</span>
                       <span className="text-xs text-slate-500 font-medium mt-1">
-                        {intervalDays === 2 ? 'Modo 12x36 (Dia sim, dia não)' : `A cada ${intervalDays} dias`}
+                        {intervalDays === 2 ? 'Modo 12x36' : `A cada ${intervalDays} dias`}
                       </span>
                     </div>
                     <div className="text-2xl font-mono font-black text-primary">
@@ -232,61 +264,55 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
               </div>
             )}
 
-            {/* Dias Ímpares / Pares (Info) */}
             {(type === AlarmType.ODD_DAYS || type === AlarmType.EVEN_DAYS) && (
               <div className="pt-4 border-t border-white/5 text-center animate-in fade-in">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20">
-                  <Hash size={14} className="text-primary" />
+                  <Info size={14} className="text-primary" />
                   <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
-                    Baseado no dia do mês ({type === AlarmType.ODD_DAYS ? 'Ímpares' : 'Pares'})
+                    Seguirá o calendário ({type === AlarmType.ODD_DAYS ? 'Dias 1, 3, 5...' : 'Dias 2, 4, 6...'})
                   </span>
                 </div>
               </div>
             )}
           </section>
 
-          {/* Sons (Lista de Rolagem) */}
           <section className="bg-white/5 rounded-[32px] p-6 space-y-6 border border-white/5">
             <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-widest">
-              <Music size={14} /> Seleção de Toque
+              <Music size={14} /> Toque do Alarme
             </div>
 
-            {/* Lista com Rolagem */}
-            <div className="max-h-[260px] overflow-y-auto pr-2 custom-scroll space-y-2">
+            <div className="max-h-[220px] overflow-y-auto pr-2 custom-scroll space-y-2 bg-slate-900/30 rounded-2xl p-2 border border-white/5">
               {PRESET_SOUNDS.map((sound) => (
-                <button
+                <div
                   key={sound.id}
-                  type="button"
                   onClick={() => { setSoundUri(sound.id); setSoundName(sound.name); }}
-                  className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all ${
                     soundUri === sound.id 
-                    ? 'bg-primary/15 border-primary/40 text-white shadow-inner' 
-                    : 'bg-slate-900/50 border-white/5 text-slate-500 hover:border-white/10'
+                    ? 'bg-primary/20 border border-primary/40 text-white' 
+                    : 'bg-transparent border border-transparent text-slate-500 hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full transition-all ${soundUri === sound.id ? 'bg-primary shadow-[0_0_8px_rgba(99,102,241,1)] scale-125' : 'bg-slate-700'}`} />
-                    <span className={`text-sm font-bold tracking-tight ${soundUri === sound.id ? 'text-white' : 'text-slate-500'}`}>
-                      {sound.name}
-                    </span>
+                    <div className={`w-1.5 h-1.5 rounded-full ${soundUri === sound.id ? 'bg-primary shadow-[0_0_8px_rgba(99,102,241,1)]' : 'bg-slate-700'}`} />
+                    <span className="text-sm font-bold tracking-tight">{sound.name}</span>
                   </div>
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); handlePreview(sound.id, sound.name); }}
-                    className={`p-2.5 rounded-xl transition-all ${
-                      isPreviewing === sound.id ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                    className={`p-2 rounded-lg transition-all ${
+                      isPreviewing === sound.id ? 'bg-primary text-white scale-110' : 'bg-white/5 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {isPreviewing === sound.id ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
+                    {isPreviewing === sound.id ? <Square size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
                   </button>
-                </button>
+                </div>
               ))}
             </div>
 
             <div className="pt-6 border-t border-white/5 space-y-5">
               <div className="flex justify-between items-center text-xs font-bold">
                 <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest">
-                  <Volume2 size={14} className="text-primary"/> Intensidade
+                  <Volume2 size={14} className="text-primary"/> Volume
                 </span>
                 <span className="text-primary font-mono">{Math.round(volume * 100)}%</span>
               </div>
@@ -298,12 +324,11 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
             </div>
           </section>
 
-          {/* Duração & Soneca */}
           <section className="bg-white/5 rounded-[32px] p-6 space-y-8 border border-white/5">
             <div className="space-y-5">
               <div className="flex justify-between items-center text-xs font-bold">
                 <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest">
-                  <Bell size={14} className="text-primary"/> Tempo de Toque
+                  <Bell size={14} className="text-primary"/> Duração do Toque
                 </span>
                 <span className="text-primary font-mono">{formatMin(durationSeconds)}</span>
               </div>
@@ -315,12 +340,12 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
             </div>
 
             <div className="pt-6 border-t border-white/5 space-y-6">
-              <Switch label="Permitir Soneca" checked={snoozeEnabled} onChange={setSnoozeEnabled} />
+              <Switch label="Ativar Soneca" checked={snoozeEnabled} onChange={setSnoozeEnabled} />
               {snoozeEnabled && (
                 <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
                   <div className="flex justify-between items-center text-xs font-bold">
                     <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest">
-                      <Timer size={14} className="text-primary"/> Repouso (Soneca)
+                      <Timer size={14} className="text-primary"/> Intervalo Soneca
                     </span>
                     <span className="text-primary font-mono">{formatMin(snoozeSeconds)}</span>
                   </div>
@@ -335,10 +360,9 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
           </section>
         </div>
 
-        {/* Footer */}
         <div className="p-8 bg-[#020617] border-t border-white/5 sticky bottom-0 z-10 safe-bottom">
           <button type="submit" className="w-full py-5 bg-primary hover:bg-indigo-500 text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl shadow-primary/30 transition-all active:scale-95 flex items-center justify-center gap-3">
-            <Check size={20} /> Confirmar Alarme
+            <Check size={20} /> Salvar Alarme
           </button>
         </div>
       </form>

@@ -24,30 +24,19 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
       return ref.d === dayOfMonth && ref.m === month && ref.y === year;
     case AlarmType.DAILY:
       return true;
-    case AlarmType.WEEKDAYS:
-      return dayOfWeek >= 1 && dayOfWeek <= 5;
-    case AlarmType.WEEKENDS:
-      return dayOfWeek === 0 || dayOfWeek === 6;
     case AlarmType.ODD_DAYS:
       return dayOfMonth % 2 !== 0;
     case AlarmType.EVEN_DAYS:
       return dayOfMonth % 2 === 0;
-    case AlarmType.WEEKLY:
-      if (!ref) return false;
-      const refDateObj = new Date(ref.y, ref.m, ref.d);
-      return dayOfWeek === refDateObj.getDay();
-    case AlarmType.MONTHLY:
-      if (!ref) return false;
-      return dayOfMonth === ref.d;
-    case AlarmType.YEARLY:
-      if (!ref) return false;
-      return dayOfMonth === ref.d && month === ref.m;
     case AlarmType.CUSTOM:
       return alarm.customDays.includes(dayOfWeek);
     case AlarmType.SHIFT:
       if (!ref || !alarm.intervalDays) return false;
+      // Data do primeiro plantão
       const startDate = new Date(ref.y, ref.m, ref.d);
       startDate.setHours(0,0,0,0);
+      
+      // Data atual para comparação
       const currentDate = new Date(year, month, dayOfMonth);
       currentDate.setHours(0,0,0,0);
       
@@ -57,6 +46,9 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
       if (diffDays < 0) return false;
       return diffDays % alarm.intervalDays === 0;
     default:
+      // Fallback para outros tipos caso ainda existam no estado
+      if (alarm.type === AlarmType.WEEKDAYS) return dayOfWeek >= 1 && dayOfWeek <= 5;
+      if (alarm.type === AlarmType.WEEKENDS) return dayOfWeek === 0 || dayOfWeek === 6;
       return false;
   }
 };
@@ -65,6 +57,7 @@ export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
   const now = new Date();
   const [targetHours, targetMinutes] = alarm.time.split(':').map(Number);
   
+  // Verifica nos próximos 366 dias
   for (let i = 0; i <= 366; i++) {
     const testDate = new Date(now);
     testDate.setDate(now.getDate() + i);
@@ -106,20 +99,14 @@ export const getNextOccurrenceText = (alarm: Alarm): string => {
 
   switch (alarm.type) {
     case AlarmType.DAILY: return 'Diariamente';
-    case AlarmType.ONCE: return alarm.date ? `Em ${formatDateBR(alarm.date)}` : 'Uma vez';
-    case AlarmType.WEEKDAYS: return 'Dias de semana';
-    case AlarmType.WEEKENDS: return 'Fins de semana';
     case AlarmType.ODD_DAYS: return 'Dias ímpares';
     case AlarmType.EVEN_DAYS: return 'Dias pares';
-    case AlarmType.SHIFT: return `Escala (${alarm.intervalDays} em ${alarm.intervalDays} dias)`;
-    case AlarmType.WEEKLY: return alarm.date ? `Semanal (ref: ${formatDateBR(alarm.date)})` : 'Semanalmente';
-    case AlarmType.MONTHLY: return alarm.date ? `Todo dia ${alarm.date.split('-')[2]}` : 'Mensalmente';
-    case AlarmType.YEARLY: return alarm.date ? `Todo ${formatDateBR(alarm.date)}` : 'Anualmente';
+    case AlarmType.SHIFT: return `Plantão (${alarm.intervalDays} em ${alarm.intervalDays} dias)`;
     case AlarmType.CUSTOM: 
       const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
       if (alarm.customDays.length === 7) return 'Diariamente';
       if (alarm.customDays.length === 0) return 'Nunca';
       return alarm.customDays.map(d => days[d]).join(', ');
-    default: return '';
+    default: return 'Uma vez';
   }
 };

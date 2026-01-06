@@ -19,6 +19,7 @@ export interface AppSettings {
   disableWakeLock: boolean;
   lowFiUI: boolean;
   disableHaptics: boolean;
+  volumeBoost: boolean;
 }
 
 export interface Alarm {

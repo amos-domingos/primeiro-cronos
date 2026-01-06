@@ -6,12 +6,13 @@ import { Switch } from './ui/Switch';
 
 interface AlarmListProps {
   alarms: Alarm[];
+  lastSavedId?: string | null;
   onToggle: (id: string, enabled: boolean) => void;
   onDelete: (id: string) => void;
   onEdit: (alarm: Alarm) => void;
 }
 
-export const AlarmList: React.FC<AlarmListProps> = ({ alarms, onToggle, onDelete, onEdit }) => {
+export const AlarmList: React.FC<AlarmListProps> = ({ alarms, lastSavedId, onToggle, onDelete, onEdit }) => {
   if (alarms.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-slate-500">
@@ -31,7 +32,7 @@ export const AlarmList: React.FC<AlarmListProps> = ({ alarms, onToggle, onDelete
           onClick={() => onEdit(alarm)}
           className={`group relative glass rounded-[40px] p-8 transition-all active:scale-[0.97] cursor-pointer ${
             !alarm.isEnabled ? 'opacity-30' : 'active-glow border-white/20'
-          }`}
+          } ${lastSavedId === alarm.id ? 'animate-success-pulse' : ''}`}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">

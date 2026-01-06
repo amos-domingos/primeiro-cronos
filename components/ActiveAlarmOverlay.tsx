@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alarm, AppSettings } from '../types';
-import { BellOff, Timer, Volume2, Music, BatteryLow, AlertCircle, Smartphone } from 'lucide-react';
+import { BellOff, Timer, Volume2, Music, AlertCircle, Smartphone } from 'lucide-react';
 import { audioService } from '../services/audioService';
 
 interface ActiveAlarmOverlayProps {
@@ -15,6 +15,21 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
   const [showVolumeHint, setShowVolumeHint] = useState(true);
 
   useEffect(() => {
+    // Wake Lock: Tenta manter a tela ligada se habilitado nas configurações
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      if (settings.disableWakeLock) return;
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err: any) {
+        console.error(`${err.name}, ${err.message}`);
+      }
+    };
+
+    requestWakeLock();
+
     const uri = alarm.soundUri || 'classic';
     const vibrate = (alarm.vibrationEnabled ?? true) && !settings.disableHaptics;
     const pattern = alarm.vibrationPattern || 'heartbeat';
@@ -40,8 +55,13 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
       clearInterval(timer);
       clearTimeout(autoStopTimer);
       clearTimeout(hintTimer);
+      if (wakeLock) {
+        wakeLock.release().then(() => {
+          wakeLock = null;
+        });
+      }
     };
-  }, [alarm, onDismiss, settings.disableHaptics]);
+  }, [alarm, onDismiss, settings.disableHaptics, settings.disableWakeLock]);
 
   const formatSecondsLabel = (s: number) => {
     if (s < 60) return `${s}s`;
@@ -53,13 +73,13 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
   const isEcoMode = settings.lowFiUI || settings.batterySaver;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-dark overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black overflow-hidden select-none">
       
       {/* Background Dinâmico de Alerta */}
       {!isEcoMode && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute inset-0 bg-primary/20 animate-pulse" />
-          <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(99,102,241,0.15)_0%,transparent_70%)] animate-[spin_10s_linear_infinite]" />
+          <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(99,102,241,0.2)_0%,transparent_70%)] animate-[spin_10s_linear_infinite]" />
         </div>
       )}
 
@@ -68,8 +88,8 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
            <div className="bg-yellow-500/90 backdrop-blur-md text-black px-6 py-4 rounded-3xl flex items-center gap-4 shadow-2xl">
               <AlertCircle size={28} className="shrink-0" />
               <div className="flex flex-col">
-                <span className="font-black text-xs uppercase tracking-wider">Aviso de Som</span>
-                <p className="text-[10px] font-bold leading-tight opacity-90">Certifique-se que o volume de mídia do celular está no máximo para garantir que você acorde.</p>
+                <span className="font-black text-[10px] uppercase tracking-wider">Atenção</span>
+                <p className="text-[11px] font-bold leading-tight opacity-90">Verifique se o volume de mídia do sistema está alto.</p>
               </div>
            </div>
         </div>
@@ -101,7 +121,7 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
             className="group relative flex items-center justify-center gap-4 w-full py-8 bg-white text-black rounded-[40px] transition-all active:scale-95 shadow-[0_20px_60px_rgba(255,255,255,0.2)]"
           >
             <BellOff className="w-10 h-10" />
-            <span className="text-3xl font-black uppercase italic tracking-tighter">PARAR</span>
+            <span className="text-3xl font-black uppercase italic tracking-tighter">DESLIGAR</span>
           </button>
 
           {alarm.snoozeEnabled && (
