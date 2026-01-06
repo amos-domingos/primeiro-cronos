@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Settings, CheckCircle2, ShieldAlert, X } from 'lucide-react';
+import { Plus, Settings, CheckCircle2, ShieldAlert, X, Smartphone, Download } from 'lucide-react';
 import { Alarm, AppSettings } from './types';
 import { checkAlarmCondition, getTimeUntilNextOccurrence } from './utils/alarmUtils';
 import { AlarmList } from './components/AlarmList';
@@ -28,9 +28,13 @@ function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lastSavedId, setLastSavedId] = useState<string | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
-  // Carregar dados iniciais
   useEffect(() => {
+    // Verifica se o app está rodando como PWA instalado
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsStandalone(isPWA);
+
     const storedAlarms = localStorage.getItem(STORAGE_KEY);
     if (storedAlarms) {
       try { setAlarms(JSON.parse(storedAlarms)); } catch (e) { console.error(e); }
@@ -40,13 +44,11 @@ function App() {
       try { setSettings(JSON.parse(storedSettings)); } catch (e) { console.error(e); }
     }
 
-    // Solicitar permissão de notificação para "primeiro plano"
     if ("Notification" in window && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
   }, []);
 
-  // Monitorar Alarmes
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
@@ -60,16 +62,12 @@ function App() {
           if (!alarm.isEnabled) return;
           const [aH, aM] = alarm.time.split(':').map(Number);
           if (aH === hour && aM === min && checkAlarmCondition(alarm, now)) {
-            // Trigger alarm
             setActiveAlarm(alarm);
-            
-            // Tenta disparar notificação caso esteja em background (funciona melhor em PWA instalado)
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification("ALERTA CRONOS", {
                 body: alarm.label || "Hora de acordar!",
                 tag: "alarm-trigger",
                 requireInteraction: true,
-                silent: false
               });
             }
           }
@@ -87,7 +85,6 @@ function App() {
       return next;
     });
     
-    // Feedback visual
     setLastSavedId(alarm.id);
     setTimeout(() => setLastSavedId(null), 3000);
 
@@ -117,7 +114,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#020617] flex flex-col relative overflow-x-hidden">
-      {/* Background Decorativo */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] left-[-10%] w-96 h-96 bg-indigo-900/10 rounded-full blur-[100px]" />
@@ -131,16 +127,37 @@ function App() {
               {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
-          >
-            <Settings size={20} className="text-slate-400" />
-          </button>
+          <div className="flex gap-2">
+            {!isStandalone && (
+              <div className="hidden sm:flex items-center gap-2 px-4 bg-primary/20 text-primary rounded-2xl border border-primary/20 text-[10px] font-black uppercase tracking-widest">
+                <Smartphone size={14} /> Modo PWA
+              </div>
+            )}
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
+            >
+              <Settings size={20} className="text-slate-400" />
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 pb-32 z-10">
+        {!isStandalone && (
+          <div className="mb-8 p-6 bg-primary/10 border border-primary/20 rounded-[32px] flex items-center gap-5 animate-in slide-in-from-top-4">
+             <div className="w-12 h-12 rounded-2xl bg-primary text-white flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
+                <Download size={24} />
+             </div>
+             <div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-primary">Dica de Instalação</h4>
+                <p className="text-[10px] font-bold text-slate-400 mt-1 leading-relaxed">
+                  Adicione o Cronos à sua tela de início para ativar o despertador offline e em tela cheia.
+                </p>
+             </div>
+          </div>
+        )}
+
         <AlarmList 
           alarms={alarms} 
           lastSavedId={lastSavedId}
@@ -154,7 +171,6 @@ function App() {
         />
       </main>
 
-      {/* Settings Modal (Advanced Settings) */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4 animate-in fade-in">
           <div className="bg-[#020617] w-full max-w-sm rounded-[40px] border border-white/10 shadow-2xl overflow-hidden flex flex-col">
@@ -174,7 +190,7 @@ function App() {
                      checked={!settings.disableWakeLock} 
                      onChange={(val) => updateSettings({ disableWakeLock: !val })} 
                    />
-                   <p className="text-[10px] text-slate-500 font-medium -mt-4">Mantém a tela acesa quando o alarme toca para garantir que você o veja.</p>
+                   <p className="text-[10px] text-slate-500 font-medium -mt-4">Mantém a tela acesa quando o alarme toca.</p>
                    
                    <Switch 
                      label="Volume Extra" 
@@ -183,13 +199,13 @@ function App() {
                    />
                    
                    <Switch 
-                     label="Economia de Bateria" 
+                     label="Modo Econômico" 
                      checked={settings.batterySaver} 
                      onChange={(val) => updateSettings({ batterySaver: val })} 
                    />
                    
                    <Switch 
-                     label="Desativar Vibração Global" 
+                     label="Desativar Vibração" 
                      checked={settings.disableHaptics} 
                      onChange={(val) => updateSettings({ disableHaptics: val })} 
                    />
@@ -197,7 +213,7 @@ function App() {
 
                 <div className="bg-primary/5 p-4 rounded-3xl border border-primary/10">
                    <p className="text-[10px] text-primary font-black uppercase tracking-widest leading-relaxed">
-                     Nota: Para o alarme aparecer em primeiro plano, mantenha o app aberto ou use como PWA instalado.
+                     Para máxima precisão, instale o app via navegador ou utilize o APK oficial do Cronos.
                    </p>
                 </div>
              </div>
