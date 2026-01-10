@@ -34,8 +34,7 @@ export interface Alarm {
   
   // Settings
   durationSeconds: number;
-  snoozeEnabled: boolean;
-  snoozeSeconds: number;
+  snoozeSeconds: number; // 0 means disabled
   
   // Sound Settings
   soundUri: string;

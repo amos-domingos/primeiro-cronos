@@ -31,7 +31,6 @@ function App() {
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // Verifica se o app está rodando como PWA instalado
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     setIsStandalone(isPWA);
 
@@ -64,7 +63,7 @@ function App() {
           if (aH === hour && aM === min && checkAlarmCondition(alarm, now)) {
             setActiveAlarm(alarm);
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("ALERTA CRONOS", {
+              new Notification("CRONOS - ALERTA", {
                 body: alarm.label || "Hora de acordar!",
                 tag: "alarm-trigger",
                 requireInteraction: true,
@@ -122,7 +121,9 @@ function App() {
       <header className="sticky top-0 z-40 glass safe-top">
         <div className="max-w-2xl mx-auto px-6 py-6 flex items-center justify-between">
           <div className="flex flex-col">
-            <span className="text-[10px] font-black tracking-[0.3em] text-primary uppercase">Cronos</span>
+            <span className="text-[9px] font-black tracking-[0.2em] text-primary uppercase whitespace-nowrap">
+              CRONOS <span className="text-slate-500 font-bold ml-1 opacity-70">by Amós Domingos</span>
+            </span>
             <span className="text-4xl font-mono font-bold tracking-tighter">
               {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </span>
@@ -152,7 +153,7 @@ function App() {
              <div>
                 <h4 className="text-xs font-black uppercase tracking-widest text-primary">Dica de Instalação</h4>
                 <p className="text-[10px] font-bold text-slate-400 mt-1 leading-relaxed">
-                  Adicione o Cronos à sua tela de início para ativar o despertador offline e em tela cheia.
+                  Adicione o app à sua tela de início para ativar o despertador em tela cheia e offline.
                 </p>
              </div>
           </div>
@@ -213,7 +214,13 @@ function App() {
 
                 <div className="bg-primary/5 p-4 rounded-3xl border border-primary/10">
                    <p className="text-[10px] text-primary font-black uppercase tracking-widest leading-relaxed">
-                     Para máxima precisão, instale o app via navegador ou utilize o APK oficial do Cronos.
+                     Para máxima precisão em testes, instale o app via navegador ou utilize o APK oficial.
+                   </p>
+                </div>
+                
+                <div className="text-center pt-2">
+                   <p className="text-[9px] font-black uppercase text-slate-600 tracking-widest">
+                     Desenvolvido por Amós Domingos
                    </p>
                 </div>
              </div>

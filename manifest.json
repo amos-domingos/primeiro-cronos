@@ -1,8 +1,7 @@
-
 {
-  "name": "Cronos Alarme Inteligente",
-  "short_name": "Cronos",
-  "description": "Despertador avançado para plantonistas e rotinas complexas.",
+  "name": "CRONOS by Amós Domingos",
+  "short_name": "CRONOS",
+  "description": "Despertador avançado para plantonistas e rotinas complexas. Desenvolvido por Amós Domingos.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#020617",

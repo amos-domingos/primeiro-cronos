@@ -124,7 +124,7 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
             <span className="text-3xl font-black uppercase italic tracking-tighter">DESLIGAR</span>
           </button>
 
-          {alarm.snoozeEnabled && (
+          {alarm.snoozeSeconds > 0 && (
             <button
               onClick={onSnooze}
               className="flex items-center justify-center gap-3 w-full py-6 bg-slate-900/50 backdrop-blur-md text-slate-300 border border-slate-700/50 rounded-[40px] transition-all active:scale-95"

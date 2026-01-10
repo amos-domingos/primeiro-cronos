@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Alarm, AlarmType } from '../types';
 import { generateId } from '../utils/alarmUtils';
-import { X, Repeat, Bell, Timer, Calendar, Check, Music, Volume2, Play, Square, Info, Tag, ShieldAlert, Settings2, BatteryWarning, Edit3, Type, ChevronDown, Music2, Headphones, FileAudio, Loader2 } from 'lucide-react';
+import { X, Repeat, Bell, Timer, Calendar, Check, Music, Volume2, Play, Square, Info, Tag, ShieldAlert, Settings2, BatteryWarning, Edit3, Type, ChevronDown, Music2, Headphones, FileAudio, Loader2, BellOff } from 'lucide-react';
 import { Switch } from './ui/Switch';
 import { audioService } from '../services/audioService';
 import { audioStorageService } from '../services/audioStorageService';
@@ -40,7 +39,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   const [type, setType] = useState<AlarmType>(initialData?.type || AlarmType.DAILY);
   const [label, setLabel] = useState(initialData?.label || '');
   const [volume, setVolume] = useState(initialData?.volume ?? 0.8);
-  const [snoozeEnabled, setSnoozeEnabled] = useState(initialData?.snoozeEnabled ?? true);
   const [snoozeSeconds, setSnoozeSeconds] = useState(initialData?.snoozeSeconds ?? 300);
   const [durationSeconds, setDurationSeconds] = useState(initialData?.durationSeconds ?? 300);
   const [intervalDays, setIntervalDays] = useState(initialData?.intervalDays || 2);
@@ -54,7 +52,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
   const [showLabelSelector, setShowLabelSelector] = useState(false);
   const [isTypingCustomLabel, setIsTypingCustomLabel] = useState(false);
   const [showPresetsList, setShowPresetsList] = useState(false);
-  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
   
   const customLabelInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,7 +66,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
     }
   }, [isTypingCustomLabel]);
 
-  // Added missing toggleDay function
   const toggleDay = (day: number) => {
     setCustomDays(prev => {
       const next = prev.includes(day) 
@@ -124,7 +120,7 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
       time, label, isEnabled: true, type: finalType,
       customDays: (type === AlarmType.SHIFT || type === AlarmType.ODD_DAYS || type === AlarmType.EVEN_DAYS) ? [0,1,2,3,4,5,6] : customDays,
       date: type === AlarmType.SHIFT ? startDate : undefined,
-      intervalDays, durationSeconds, snoozeEnabled, snoozeSeconds,
+      intervalDays, durationSeconds, snoozeSeconds,
       soundUri, soundName, volume, fadeDurationSeconds: 10, vibrationEnabled: true,
       vibrationPattern: 'continuous', lastStoppedDate: null
     });
@@ -136,7 +132,9 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
         
         <div className="px-8 py-6 flex justify-between items-center border-b border-white/5 bg-[#020617]/50 backdrop-blur-md z-10">
           <div>
-            <span className="text-[10px] font-black text-primary tracking-[0.4em] uppercase">Cronos</span>
+            <span className="text-[9px] font-black text-primary tracking-[0.2em] uppercase">
+              CRONOS <span className="text-slate-500 font-bold ml-1 opacity-60">by Amós Domingos</span>
+            </span>
             <h2 className="text-xl font-bold tracking-tight">Editar Alarme</h2>
           </div>
           <button type="button" onClick={onCancel} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-slate-400">
@@ -266,23 +264,21 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCan
           <section className="bg-white/5 rounded-[32px] p-6 space-y-8 border border-white/5">
             <div className="space-y-5">
               <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Bell size={14} className="text-primary"/> Duração do Toque</span>
+                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><BellOff size={14} className="text-primary"/> Tempo de Duração</span>
                 <span className="text-primary font-mono">{Math.floor(durationSeconds/60)}m</span>
               </div>
               <input type="range" min="60" max="1800" step="60" value={durationSeconds} onChange={(e) => setDurationSeconds(parseInt(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
             </div>
 
-            <div className="pt-6 border-t border-white/5 space-y-6">
-              <Switch label="Ativar Soneca" checked={snoozeEnabled} onChange={setSnoozeEnabled} />
-              {snoozeEnabled && (
-                <div className="space-y-5 animate-in fade-in">
-                  <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Timer size={14} className="text-primary"/> Tempo Soneca</span>
-                    <span className="text-primary font-mono">{Math.floor(snoozeSeconds/60)}m</span>
-                  </div>
-                  <input type="range" min="60" max="1200" step="60" value={snoozeSeconds} onChange={(e) => setSnoozeSeconds(parseInt(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
-                </div>
-              )}
+            <div className="pt-6 border-t border-white/5 space-y-5">
+              <div className="flex justify-between items-center text-xs font-bold">
+                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Timer size={14} className="text-primary"/> Tempo Soneca</span>
+                <span className={`font-mono transition-colors ${snoozeSeconds === 0 ? 'text-red-500 font-black' : 'text-primary'}`}>
+                  {snoozeSeconds === 0 ? 'DESATIVADA' : `${Math.floor(snoozeSeconds/60)}m`}
+                </span>
+              </div>
+              <input type="range" min="0" max="1200" step="60" value={snoozeSeconds} onChange={(e) => setSnoozeSeconds(parseInt(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
+              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-wider text-center">Deslize para o zero para desativar a soneca</p>
             </div>
           </section>
         </div>
