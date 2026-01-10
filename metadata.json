@@ -1,5 +1,7 @@
 {
-  "name": "Cronos - Despertador 12x36, plantão",
-  "description": "Um despertador avançado com suporte para alarmes para plantonistas, também em dias pares e ímpares, controle granular de duração e soneca.",
-  "requestFramePermissions": []
+  "name": "Cronos - Despertador Profissional",
+  "description": "Despertador com suporte a dias pares/ímpares, plantões 12x36 e controle total de áudio.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

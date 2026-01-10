@@ -1,3 +1,4 @@
+
 import { Alarm, AlarmType } from '../types';
 
 export const generateId = (): string => Math.random().toString(36).substr(2, 9);
@@ -5,9 +6,9 @@ export const generateId = (): string => Math.random().toString(36).substr(2, 9);
 export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
   if (!alarm.isEnabled) return false;
 
-  const dayOfWeek = now.getDay(); // 0-6
-  const dayOfMonth = now.getDate(); // 1-31
-  const month = now.getMonth(); // 0-11
+  const dayOfWeek = now.getDay(); 
+  const dayOfMonth = now.getDate();
+  const month = now.getMonth();
   const year = now.getFullYear();
 
   const getRefDateParts = (dateStr?: string) => {
@@ -19,36 +20,27 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
   const ref = getRefDateParts(alarm.date);
 
   switch (alarm.type) {
-    case AlarmType.ONCE:
-      if (!ref) return true;
-      return ref.d === dayOfMonth && ref.m === month && ref.y === year;
     case AlarmType.DAILY:
       return true;
     case AlarmType.ODD_DAYS:
+      // Dias ímpares: 1, 3, 5, 7, 9...
       return dayOfMonth % 2 !== 0;
     case AlarmType.EVEN_DAYS:
+      // Dias pares: 2, 4, 6, 8, 10...
       return dayOfMonth % 2 === 0;
     case AlarmType.CUSTOM:
       return alarm.customDays.includes(dayOfWeek);
     case AlarmType.SHIFT:
       if (!ref || !alarm.intervalDays) return false;
-      // Data do primeiro plantão
       const startDate = new Date(ref.y, ref.m, ref.d);
       startDate.setHours(0,0,0,0);
-      
-      // Data atual para comparação
       const currentDate = new Date(year, month, dayOfMonth);
       currentDate.setHours(0,0,0,0);
-      
       const diffTime = currentDate.getTime() - startDate.getTime();
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-      
       if (diffDays < 0) return false;
       return diffDays % alarm.intervalDays === 0;
     default:
-      // Fallback para outros tipos caso ainda existam no estado
-      if (alarm.type === AlarmType.WEEKDAYS) return dayOfWeek >= 1 && dayOfWeek <= 5;
-      if (alarm.type === AlarmType.WEEKENDS) return dayOfWeek === 0 || dayOfWeek === 6;
       return false;
   }
 };
@@ -57,7 +49,6 @@ export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
   const now = new Date();
   const [targetHours, targetMinutes] = alarm.time.split(':').map(Number);
   
-  // Verifica nos próximos 366 dias
   for (let i = 0; i <= 366; i++) {
     const testDate = new Date(now);
     testDate.setDate(now.getDate() + i);
@@ -73,39 +64,27 @@ export const getTimeUntilNextOccurrence = (alarm: Alarm): string => {
       const minutes = totalMinutes % 60;
 
       const parts = [];
-      if (days > 0) parts.push(`${days} ${days === 1 ? 'dia' : 'dias'}`);
-      if (hours > 0) parts.push(`${hours} ${hours === 1 ? 'hora' : 'horas'}`);
-      if (minutes > 0 || (days === 0 && hours === 0)) {
-         parts.push(`${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`);
-      }
+      if (days > 0) parts.push(`${days}d`);
+      if (hours > 0) parts.push(`${hours}h`);
+      if (minutes > 0 || (days === 0 && hours === 0)) parts.push(`${minutes}m`);
 
-      if (parts.length === 0) return 'menos de um minuto';
-      if (parts.length === 1) return parts[0];
-      const lastPart = parts.pop();
-      return `${parts.join(', ')} e ${lastPart}`;
+      return parts.join(' ');
     }
   }
-  return 'muito tempo';
+  return '---';
 };
 
 export const getNextOccurrenceText = (alarm: Alarm): string => {
   if (!alarm.isEnabled) return 'Desativado';
   
-  const formatDateBR = (isoDate?: string) => {
-    if (!isoDate) return '';
-    const [y, m, d] = isoDate.split('-');
-    return `${d}/${m}`;
-  };
-
   switch (alarm.type) {
-    case AlarmType.DAILY: return 'Diariamente';
-    case AlarmType.ODD_DAYS: return 'Dias ímpares';
-    case AlarmType.EVEN_DAYS: return 'Dias pares';
-    case AlarmType.SHIFT: return `Plantão (${alarm.intervalDays} em ${alarm.intervalDays} dias)`;
+    case AlarmType.DAILY: return 'Diário';
+    case AlarmType.ODD_DAYS: return 'Dias Ímpares';
+    case AlarmType.EVEN_DAYS: return 'Dias Pares';
+    case AlarmType.SHIFT: return `Plantão ${alarm.intervalDays}d`;
     case AlarmType.CUSTOM: 
       const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-      if (alarm.customDays.length === 7) return 'Diariamente';
-      if (alarm.customDays.length === 0) return 'Nunca';
+      if (alarm.customDays.length === 7) return 'Diário';
       return alarm.customDays.map(d => days[d]).join(', ');
     default: return 'Uma vez';
   }
