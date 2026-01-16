@@ -1,24 +1,42 @@
+
 package com.cronos.alarme
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
+import android.net.Uri
 import android.os.Bundle
 import android.view.WindowManager
 import android.app.KeyguardManager
 import android.os.Build
-import android.provider.Settings
 import android.webkit.*
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.webkit.WebViewAssetLoader
 import android.util.Log
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
+
+    private val ringtonePickerLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (uri != null) {
+                val ringtone = RingtoneManager.getRingtone(this, uri)
+                val name = ringtone.getTitle(this)
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('systemSoundSelected', { detail: { uri: '${uri}', name: '${name}' } }));", null)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,114 +46,112 @@ class MainActivity : ComponentActivity() {
         webView = WebView(this)
         configureWebView()
         
-        webView.addJavascriptInterface(WebAppInterface(this), "AndroidAlarm")
+        val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(request.url)
+            }
+            override fun onPageFinished(view: WebView?, url: String?) {
+                webView.evaluateJavascript("window.isAndroidReady = true;", null)
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                Log.d("CRONOS_JS", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()}")
+                return true
+            }
+        }
+
+        webView.addJavascriptInterface(WebAppInterface(this, webView, ringtonePickerLauncher), "AndroidAlarm")
         
-        // Caminho dos arquivos na pasta assets/www
-        val url = "file:///android_asset/www/index.html"
-        
-        Log.d("CRONOS", "Carregando interface: $url")
-        webView.loadUrl(url)
+        webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html")
         setContentView(webView)
-        
-        // Verifica se a Activity foi iniciada por um alarme
-        handleAlarmIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleAlarmIntent(intent)
-    }
-
-    private fun handleAlarmIntent(intent: Intent?) {
-        // Dispara um evento customizado no JavaScript para o React abrir o overlay do alarme
-        webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('alarmTriggered'));", null)
     }
 
     private fun checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
-            }
-        }
+        val permissions = mutableListOf(Manifest.permission.WAKE_LOCK, Manifest.permission.VIBRATE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        val toRequest = permissions.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (toRequest.isNotEmpty()) ActivityCompat.requestPermissions(this, toRequest.toTypedArray(), 101)
     }
 
     private fun setupLockScreenFlags() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
-            val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            keyguardManager.requestDismissKeyguard(this, null)
+            (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).requestDismissKeyguard(this, null)
         } else {
             @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-            )
+            window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
     }
 
     private fun configureWebView() {
         val settings = webView.settings
-        
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.setSupportStorage(true)
-        
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.allowFileAccess = true
         settings.allowContentAccess = true
-        settings.allowFileAccessFromFileURLs = true
-        settings.allowUniversalAccessFromFileURLs = true
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        }
-
-        webView.webChromeClient = WebChromeClient()
-        
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                // Caso o app tenha acabado de carregar, verifica se deve disparar o alarme
-                handleAlarmIntent(intent)
-            }
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                Log.e("CRONOS", "Erro WebView: ${error?.description}")
-            }
-        }
+        settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
     }
 
-    class WebAppInterface(private val mContext: Context) {
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        webView.evaluateJavascript("window.dispatchEvent(new Event('alarmTriggered'));", null)
+    }
+
+    class WebAppInterface(private val mContext: Context, private val webView: WebView, private val launcher: androidx.activity.result.ActivityResultLauncher<Intent>) {
         @JavascriptInterface
         fun scheduleAlarm(timeInMillis: Long, label: String) {
             val alarmManager = mContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(mContext, AlarmReceiver::class.java).apply {
-                putExtra("ALARM_LABEL", label)
-            }
-            val pendingIntent = PendingIntent.getBroadcast(
-                mContext, 0, intent, 
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            
-            // Verificação de permissão para alarmes exatos (Android 12+)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-                } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-                }
-            } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
-            }
+            val intent = Intent(mContext, AlarmReceiver::class.java).apply { putExtra("ALARM_LABEL", label) }
+            val pendingIntent = PendingIntent.getBroadcast(mContext, label.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+            else alarmManager.setExact(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
         }
 
         @JavascriptInterface
         fun stopAlarmService() {
             mContext.stopService(Intent(mContext, AlarmService::class.java))
+        }
+
+        @JavascriptInterface
+        fun getSystemRingtones() {
+            try {
+                val manager = RingtoneManager(mContext)
+                manager.setType(RingtoneManager.TYPE_ALARM)
+                val cursor = manager.cursor
+                val list = JSONArray()
+                while (cursor.moveToNext()) {
+                    val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX)
+                    val uri = manager.getRingtoneUri(cursor.position).toString()
+                    val item = JSONObject()
+                    item.put("name", title)
+                    item.put("uri", uri)
+                    list.put(item)
+                }
+                val json = list.toString()
+                (mContext as Activity).runOnUiThread {
+                    webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('systemRingtonesLoaded', { detail: $json }));", null)
+                }
+            } catch (e: Exception) {
+                Log.e("CRONOS_BRIDGE", "Erro ao listar ringtones", e)
+            }
+        }
+
+        @JavascriptInterface
+        fun pickSystemSound() {
+            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Sons do Android")
+                putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, null as Uri?)
+            }
+            (mContext as Activity).runOnUiThread { launcher.launch(intent) }
         }
     }
 }

@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { Alarm, AppSettings } from '../types';
-import { BellOff, Timer, Volume2, Music, AlertCircle, Smartphone } from 'lucide-react';
+import { BellOff, Timer, Volume2, AlertCircle } from 'lucide-react';
 import { audioService } from '../services/audioService';
 
 interface ActiveAlarmOverlayProps {
@@ -12,56 +13,43 @@ interface ActiveAlarmOverlayProps {
 
 export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, settings, onDismiss, onSnooze }) => {
   const [time, setTime] = useState(new Date());
-  const [showVolumeHint, setShowVolumeHint] = useState(true);
+  const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
+    // Tenta ligar a tela via WakeLock (Web API)
     let wakeLock: any = null;
     const requestWakeLock = async () => {
-      if (settings.disableWakeLock) return;
       try {
         if ('wakeLock' in navigator) {
           wakeLock = await (navigator as any).wakeLock.request('screen');
         }
-      } catch (err: any) {
-        console.error(`${err.name}, ${err.message}`);
-      }
+      } catch (err) {}
     };
-
     requestWakeLock();
 
+    // Inicia o som e vibração
     const uri = alarm.soundUri || 'classic';
     const vibrate = (alarm.vibrationEnabled ?? true) && !settings.disableHaptics;
-    const pattern = alarm.vibrationPattern || 'heartbeat';
-    const vol = alarm.volume ?? 1.0;
-    const fade = alarm.fadeDurationSeconds ?? 0;
+    audioService.startAlarm(uri, vibrate, alarm.vibrationPattern || 'heartbeat', alarm.volume, alarm.fadeDurationSeconds);
     
-    audioService.startAlarm(uri, vibrate, pattern, vol, fade);
-    
-    const timer = setInterval(() => {
-      setTime(new Date());
-    }, 1000);
+    const clockTimer = setInterval(() => setTime(new Date()), 1000);
+    const pulseTimer = setInterval(() => setPulse(p => !p), 1000);
 
-    const duration = (alarm.durationSeconds || 300) * 1000;
-    const autoStopTimer = setTimeout(() => handleDismiss(), duration);
-    const hintTimer = setTimeout(() => setShowVolumeHint(false), 10000);
+    // Auto-desligar após o tempo exato definido (DURAÇÃO)
+    const durationMs = (alarm.durationSeconds || 30) * 1000;
+    const autoStop = setTimeout(() => handleDismiss(), durationMs);
 
     return () => {
       audioService.stopAlarm();
-      clearInterval(timer);
-      clearTimeout(autoStopTimer);
-      clearTimeout(hintTimer);
-      if (wakeLock) {
-        wakeLock.release().then(() => {
-          wakeLock = null;
-        });
-      }
+      clearInterval(clockTimer);
+      clearInterval(pulseTimer);
+      clearTimeout(autoStop);
+      if (wakeLock) wakeLock.release();
     };
   }, [alarm, settings]);
 
   const handleDismiss = () => {
-    // Para o som no React
     audioService.stopAlarm();
-    // Avisa o Android para parar a notificação e o serviço
     if ((window as any).AndroidAlarm) {
       (window as any).AndroidAlarm.stopAlarmService();
     }
@@ -69,92 +57,61 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
   };
 
   const handleSnooze = () => {
+    // Segurança extra: se a soneca for 0, não faz nada
+    if (!alarm.snoozeSeconds || alarm.snoozeSeconds <= 0) return;
+
     audioService.stopAlarm();
     if ((window as any).AndroidAlarm) {
       (window as any).AndroidAlarm.stopAlarmService();
-      
-      // Agendar a próxima ocorrência da soneca
-      const nextTime = Date.now() + (alarm.snoozeSeconds * 1000);
+      const snoozeMs = alarm.snoozeSeconds * 1000;
+      const nextTime = Date.now() + snoozeMs;
       (window as any).AndroidAlarm.scheduleAlarm(nextTime, `Soneca: ${alarm.label}`);
     }
     onSnooze();
   };
 
-  const formatSecondsLabel = (s: number) => {
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    return rs > 0 ? `${m}m ${rs}s` : `${m}m`;
-  };
-
-  const isEcoMode = settings.lowFiUI || settings.batterySaver;
-
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black overflow-hidden select-none">
-      {!isEcoMode && (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute inset-0 bg-primary/20 animate-pulse" />
-          <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle,rgba(99,102,241,0.2)_0%,transparent_70%)] animate-[spin_10s_linear_infinite]" />
+    <div className={`fixed inset-0 z-[9999] flex flex-col items-center justify-between py-16 px-6 transition-colors duration-500 ${pulse ? 'bg-red-950' : 'bg-black'}`}>
+      <div className="text-center mt-10">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <AlertCircle className="text-red-500 animate-pulse" size={24} />
+          <span className="text-red-500 font-black uppercase tracking-[0.3em] text-xs">Alarme Ativo</span>
         </div>
-      )}
-
-      {showVolumeHint && (
-        <div className="absolute top-12 left-4 right-4 z-50 animate-in slide-in-from-top-4 duration-500">
-           <div className="bg-yellow-500/90 backdrop-blur-md text-black px-6 py-4 rounded-3xl flex items-center gap-4 shadow-2xl">
-              <AlertCircle size={28} className="shrink-0" />
-              <div className="flex flex-col">
-                <span className="font-black text-[10px] uppercase tracking-wider">Atenção</span>
-                <p className="text-[11px] font-bold leading-tight opacity-90">Verifique se o volume de mídia do sistema está alto.</p>
-              </div>
-           </div>
+        <h1 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">
+          {alarm.label || 'ACORDAR!'}
+        </h1>
+        <div className="text-[120px] font-mono font-black text-white leading-none tracking-tighter">
+          {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
         </div>
-      )}
-
-      <div className="text-center space-y-12 p-8 max-w-md w-full relative z-10">
-        <div className="space-y-4">
-          <div className="flex justify-center">
-             <div className={`p-8 rounded-full bg-slate-800/80 border-4 border-primary/40 shadow-[0_0_50px_rgba(99,102,241,0.3)] ${!isEcoMode ? 'animate-bounce' : ''}`}>
-               <Music className="w-16 h-16 text-primary" />
-             </div>
-          </div>
-          
-          <div className="flex flex-col gap-1">
-             <h1 className="text-4xl font-black text-white uppercase tracking-tighter drop-shadow-lg">{alarm.label || 'HORA DE ACORDAR!'}</h1>
-             <div className="flex items-center justify-center gap-2 text-slate-400 font-bold text-[10px] uppercase">
-                <Volume2 size={12} /> Som: {alarm.soundName}
-             </div>
-          </div>
-          
-          <div className="text-[120px] font-mono font-black text-white tracking-tighter leading-none drop-shadow-2xl">
-            {time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-          </div>
+        <div className="flex items-center justify-center gap-2 text-slate-500 mt-4">
+          <Volume2 size={16} />
+          <span className="text-sm font-bold">{alarm.soundName}</span>
         </div>
+      </div>
 
-        <div className="flex flex-col gap-6 w-full mt-8">
+      <div className="w-full max-w-sm space-y-6">
+        {/* Só mostra o botão de soneca se o tempo for maior que 0 */}
+        {alarm.snoozeSeconds > 0 && (
           <button
-            onClick={handleDismiss}
-            className="group relative flex items-center justify-center gap-4 w-full py-8 bg-white text-black rounded-[40px] transition-all active:scale-95 shadow-[0_20px_60px_rgba(255,255,255,0.2)]"
+            onClick={handleSnooze}
+            className="w-full py-8 bg-slate-900 border-2 border-slate-700 rounded-[40px] flex items-center justify-center gap-4 active:scale-95 transition-transform"
           >
-            <BellOff className="w-10 h-10" />
-            <span className="text-3xl font-black uppercase italic tracking-tighter">DESLIGAR</span>
+            <Timer className="text-slate-400" size={32} />
+            <span className="text-2xl font-black text-slate-300 uppercase italic">Soneca</span>
           </button>
-
-          {alarm.snoozeSeconds > 0 && (
-            <button
-              onClick={handleSnooze}
-              className="flex items-center justify-center gap-3 w-full py-6 bg-slate-900/50 backdrop-blur-md text-slate-300 border border-slate-700/50 rounded-[40px] transition-all active:scale-95"
-            >
-              <Timer className="w-7 h-7" />
-              <span className="text-xl font-black uppercase tracking-widest">Soneca ({formatSecondsLabel(alarm.snoozeSeconds)})</span>
-            </button>
-          )}
-        </div>
-
-        {(alarm.vibrationEnabled ?? true) && (
-          <div className="flex items-center justify-center gap-2 text-primary/50 text-[10px] font-black uppercase animate-pulse">
-            <Smartphone size={12} /> Vibração Ativa
-          </div>
         )}
+
+        <button
+          onClick={handleDismiss}
+          className="w-full py-12 bg-white rounded-[50px] flex items-center justify-center gap-4 shadow-[0_0_50px_rgba(255,255,255,0.3)] active:scale-95 transition-transform"
+        >
+          <BellOff className="text-black" size={48} />
+          <span className="text-4xl font-black text-black uppercase italic tracking-tighter">PARAR</span>
+        </button>
+      </div>
+
+      <div className="text-slate-600 text-[10px] font-black uppercase tracking-widest animate-pulse">
+        Desligamento automático em {alarm.durationSeconds} segundos
       </div>
     </div>
   );

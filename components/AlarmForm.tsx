@@ -1,294 +1,322 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Alarm, AlarmType } from '../types';
 import { generateId } from '../utils/alarmUtils';
-import { X, Repeat, Bell, Timer, Calendar, Check, Music, Volume2, Play, Square, Info, Tag, ShieldAlert, Settings2, BatteryWarning, Edit3, Type, ChevronDown, Music2, Headphones, FileAudio, Loader2, BellOff } from 'lucide-react';
-import { Switch } from './ui/Switch';
-import { audioService } from '../services/audioService';
+import { X, Music, Smartphone, Lock, Upload, Check, Tag, Calendar, Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { audioStorageService } from '../services/audioStorageService';
+
+interface SystemSound {
+  name: string;
+  uri: string;
+}
 
 interface AlarmFormProps {
   initialData?: Alarm | null;
+  isPremium: boolean;
   onSave: (alarm: Alarm) => void;
   onCancel: () => void;
 }
 
-const WEEK_DAYS = [
-  { label: 'D', value: 0 }, { label: 'S', value: 1 }, { label: 'T', value: 2 },
-  { label: 'Q', value: 3 }, { label: 'Q', value: 4 }, { label: 'S', value: 5 }, { label: 'S', value: 6 },
-];
-
-const PRESET_SOUNDS = [
-  { id: 'classic', name: 'Beep Clássico' },
-  { id: 'radar', name: 'Radar Pulsante' },
-  { id: 'emergency', name: 'Emergência' },
-  { id: 'digital', name: 'Digital Sci-Fi' },
-  { id: 'alvorada', name: 'Alvorada Suave' },
-  { id: 'retro_phone', name: 'Telefone Retrô' },
-  { id: 'zen', name: 'Meditação Zen' },
-  { id: 'sonar', name: 'Sonar Submarino' },
-  { id: 'birds', name: 'Pássaros da Manhã' },
-];
-
-const LABEL_PRESETS = [
-  'Acordar', 'Trabalho', 'Almoço', 'Remédio', 'Escola', 'Treino', 'Reunião', 
-  'Estudar', 'Descanso', 'Jantar', 'Café', 'Pagar Conta', 'Mercado'
-];
-
-export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, onSave, onCancel }) => {
+export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, onSave, onCancel }) => {
+  const [type, setType] = useState<AlarmType>(initialData?.type || AlarmType.WEEKLY);
   const [time, setTime] = useState(initialData?.time || '07:00');
-  const [type, setType] = useState<AlarmType>(initialData?.type || AlarmType.DAILY);
   const [label, setLabel] = useState(initialData?.label || '');
-  const [volume, setVolume] = useState(initialData?.volume ?? 0.8);
-  const [snoozeSeconds, setSnoozeSeconds] = useState(initialData?.snoozeSeconds ?? 300);
-  const [durationSeconds, setDurationSeconds] = useState(initialData?.durationSeconds ?? 300);
-  const [intervalDays, setIntervalDays] = useState(initialData?.intervalDays || 2);
-  const [customDays, setCustomDays] = useState<number[]>(initialData?.customDays || [0, 1, 2, 3, 4, 5, 6]);
+  const [customDays, setCustomDays] = useState<number[]>(initialData?.customDays || [1, 2, 3, 4, 5]);
   const [startDate, setStartDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
-  const [soundUri, setSoundUri] = useState(initialData?.soundUri || 'classic');
-  const [soundName, setSoundName] = useState(initialData?.soundName || 'Beep Clássico');
-  const [isPreviewing, setIsPreviewing] = useState<string | null>(null);
-  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [interval, setInterval] = useState(initialData?.intervalDays || 2);
+  const [duration, setDuration] = useState(initialData?.durationSeconds ?? 30);
+  const [snooze, setSnooze] = useState(initialData ? Math.floor(initialData.snoozeSeconds / 60) : 5);
+  const [sound, setSound] = useState({ uri: initialData?.soundUri || 'classic', name: initialData?.soundName || 'Padrão' });
+  const [systemSounds, setSystemSounds] = useState<SystemSound[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showSoundList, setShowSoundList] = useState(false);
   
-  const [showLabelSelector, setShowLabelSelector] = useState(false);
-  const [isTypingCustomLabel, setIsTypingCustomLabel] = useState(false);
-  const [showPresetsList, setShowPresetsList] = useState(false);
-  
-  const customLabelInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const weekDays = [
+    { label: 'D', value: 0 },
+    { label: 'S', value: 1 },
+    { label: 'T', value: 2 },
+    { label: 'Q', value: 3 },
+    { label: 'Q', value: 4 },
+    { label: 'S', value: 5 },
+    { label: 'S', value: 6 },
+  ];
+
   useEffect(() => {
-    return () => audioService.stopAlarm();
+    if ((window as any).AndroidAlarm?.getSystemRingtones) {
+      (window as any).AndroidAlarm.getSystemRingtones();
+    }
+
+    const handleRingtonesLoaded = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) setSystemSounds(e.detail);
+    };
+
+    const handleSystemSound = (e: any) => {
+      if (e.detail) setSound({ uri: e.detail.uri, name: e.detail.name });
+    };
+
+    window.addEventListener('systemRingtonesLoaded', handleRingtonesLoaded);
+    window.addEventListener('systemSoundSelected', handleSystemSound);
+    
+    return () => {
+      window.removeEventListener('systemRingtonesLoaded', handleRingtonesLoaded);
+      window.removeEventListener('systemSoundSelected', handleSystemSound);
+    };
   }, []);
 
-  useEffect(() => {
-    if (isTypingCustomLabel && customLabelInputRef.current) {
-      customLabelInputRef.current.focus();
-    }
-  }, [isTypingCustomLabel]);
-
   const toggleDay = (day: number) => {
-    setCustomDays(prev => {
-      const next = prev.includes(day) 
-        ? prev.filter(d => d !== day) 
-        : [...prev, day].sort((a, b) => a - b);
-      return next;
-    });
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessingFile(true);
-    try {
-      const customId = `custom_${Date.now()}`;
-      await audioStorageService.saveSound(customId, file);
-      setSoundUri(customId);
-      setSoundName(file.name.replace(/\.[^/.]+$/, ""));
-      setShowPresetsList(false);
-      audioService.hapticFeedback('medium');
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao carregar áudio.");
-    } finally {
-      setIsProcessingFile(false);
+    setType(AlarmType.WEEKLY);
+    if (customDays.includes(day)) {
+      setCustomDays(customDays.filter(d => d !== day));
+    } else {
+      setCustomDays([...customDays, day]);
     }
   };
 
-  const handlePreview = (uri: string) => {
-    if (isPreviewing === uri) {
-      audioService.stopAlarm();
-      setIsPreviewing(null);
-    } else {
-      audioService.stopAlarm();
-      setIsPreviewing(uri);
-      audioService.startAlarm(uri, false, 'continuous', volume, 0);
-      setTimeout(() => {
-        setIsPreviewing((current) => current === uri ? null : current);
-      }, 5000);
+  const selectShift = (days: number) => {
+    if (!isPremium) return;
+    setInterval(days);
+    setType(AlarmType.SHIFT);
+    setShowDatePicker(true);
+  };
+
+  const applyPresetWeek = (preset: string) => {
+    setType(AlarmType.WEEKLY);
+    if (preset === '5x2') setCustomDays([1, 2, 3, 4, 5]);
+    else if (preset === '6x1') setCustomDays([1, 2, 3, 4, 5, 6]);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const id = `custom_${Date.now()}`;
+      await audioStorageService.saveSound(id, file);
+      setSound({ uri: id, name: file.name.substring(0, 20) });
+      setShowSoundList(false);
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    audioService.stopAlarm();
-    let finalType = type;
-    if (type === AlarmType.DAILY && customDays.length < 7) finalType = AlarmType.CUSTOM;
-
     onSave({
       id: initialData?.id || generateId(),
-      time, label, isEnabled: true, type: finalType,
-      customDays: (type === AlarmType.SHIFT || type === AlarmType.ODD_DAYS || type === AlarmType.EVEN_DAYS) ? [0,1,2,3,4,5,6] : customDays,
-      date: type === AlarmType.SHIFT ? startDate : undefined,
-      intervalDays, durationSeconds, snoozeSeconds,
-      soundUri, soundName, volume, fadeDurationSeconds: 10, vibrationEnabled: true,
-      vibrationPattern: 'continuous', lastStoppedDate: null
+      time,
+      label: label || 'Novo Alarme',
+      isEnabled: true,
+      type,
+      customDays,
+      date: type === AlarmType.SHIFT ? startDate : null,
+      intervalDays: interval,
+      durationSeconds: duration,
+      snoozeSeconds: snooze * 60,
+      soundUri: sound.uri,
+      soundName: sound.name,
+      volume: 1.0,
+      fadeDurationSeconds: 0,
+      vibrationEnabled: true,
+      vibrationPattern: 'continuous',
+      lastStoppedDate: null
     });
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/95 backdrop-blur-2xl p-0 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-[#020617] w-full max-w-lg rounded-t-[40px] sm:rounded-[40px] shadow-2xl border-t border-white/5 flex flex-col max-h-[95vh] overflow-hidden animate-in slide-in-from-bottom-10">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
+      <form onSubmit={handleSubmit} className="bg-[#0b0f1a] w-full max-w-lg rounded-t-[40px] sm:rounded-[40px] border-t sm:border border-white/10 p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] scrollbar-hide">
         
-        <div className="px-8 py-6 flex justify-between items-center border-b border-white/5 bg-[#020617]/50 backdrop-blur-md z-10">
-          <div>
-            <span className="text-[9px] font-black text-primary tracking-[0.2em] uppercase">
-              CRONOS <span className="text-slate-500 font-bold ml-1 opacity-60">by Amós Domingos</span>
-            </span>
-            <h2 className="text-xl font-bold tracking-tight">Editar Alarme</h2>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col">
+            <h2 className="text-xl font-black uppercase italic tracking-tighter text-white">Configurar Alarme</h2>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ajuste personalizado CRONOS</span>
           </div>
-          <button type="button" onClick={onCancel} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 text-slate-400">
-            <X size={20} />
+          <button type="button" onClick={onCancel} className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 active:scale-90 transition-all">
+            <X size={20}/>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-10 custom-scroll pb-10">
-          <div className="flex flex-col items-center">
-            <input
-              type="time" required value={time} onChange={(e) => setTime(e.target.value)}
-              className="bg-transparent text-8xl font-mono font-bold text-white focus:outline-none text-center tracking-tighter w-full appearance-none"
-            />
-            
-            <div className="mt-6 w-full relative px-4 flex flex-col items-center">
-              <button type="button" onClick={() => setShowLabelSelector(true)} className="group flex flex-col items-center space-y-1 focus:outline-none">
-                <div className="flex items-center gap-2 text-slate-400 group-hover:text-primary transition-colors">
-                   <Tag size={12} />
-                   <span className="text-[10px] font-black uppercase tracking-[0.2em]">Rótulo</span>
-                </div>
-                <div className="flex items-center gap-2">
-                   <span className={`text-2xl font-bold transition-all duration-300 ${label ? 'text-white' : 'text-slate-700 italic'}`}>
-                     {label || 'Sem Nome'}
-                   </span>
-                   <ChevronDown size={16} className="text-slate-600" />
-                </div>
-              </button>
+        {/* Nome do Alarme */}
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+            <Tag size={12}/> Nome do Alarme
+          </label>
+          <input 
+            type="text"
+            placeholder="Digite o nome deste alarme..."
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white placeholder:text-slate-700 focus:outline-none focus:border-indigo-500/50 transition-colors"
+          />
+        </div>
 
-              {showLabelSelector && (
-                <div className="absolute top-full left-4 right-4 z-30 mt-4 bg-slate-900/95 backdrop-blur-3xl border border-white/10 rounded-[40px] p-6 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 flex flex-col max-h-[400px]">
-                  <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-xs font-black text-slate-500 uppercase tracking-widest">Escolha um nome</h4>
-                    <button type="button" onClick={() => { setShowLabelSelector(false); setIsTypingCustomLabel(false); }} className="w-8 h-8 flex items-center justify-center bg-white/5 rounded-full text-slate-400"><X size={14} /></button>
-                  </div>
-                  <div className="overflow-y-auto custom-scroll space-y-2 pr-1 pb-2">
-                    <div className={`transition-all duration-300 rounded-2xl overflow-hidden border ${isTypingCustomLabel ? 'bg-primary/10 border-primary ring-4 ring-primary/10 mb-4' : 'bg-white/5 border-transparent'}`}>
-                       {!isTypingCustomLabel ? (
-                          <button type="button" onClick={() => setIsTypingCustomLabel(true)} className="w-full text-left px-5 py-4 text-sm font-bold text-slate-300 flex items-center gap-3"><Edit3 size={16} className="text-primary" /> Digitar nome personalizado...</button>
-                       ) : (
-                          <div className="flex items-center px-4 py-3 gap-3">
-                             <Type size={18} className="text-primary" /><input ref={customLabelInputRef} type="text" value={label} placeholder="Ex: Remédio" onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setShowLabelSelector(false)} className="bg-transparent border-none focus:ring-0 p-0 text-white w-full font-bold" />
-                             <button type="button" onClick={() => setShowLabelSelector(false)} className="p-2 bg-primary text-white rounded-xl"><Check size={16} /></button>
-                          </div>
-                       )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {LABEL_PRESETS.map((p) => (
-                        <button key={p} type="button" onClick={() => { setLabel(p); setShowLabelSelector(false); }} className={`text-center px-2 py-4 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all border ${label === p ? 'bg-primary text-white border-primary shadow-lg' : 'bg-white/5 border-white/5 text-slate-400'}`}>{p}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+        {/* Hora */}
+        <div className="flex justify-center py-2">
+          <input 
+            type="time" 
+            required
+            value={time} 
+            onChange={(e) => setTime(e.target.value)}
+            className="bg-transparent text-8xl font-mono font-bold text-indigo-500 focus:outline-none tracking-tighter"
+          />
+        </div>
+
+        {/* Seção ALARMES (Dias e Escalas) */}
+        <div className="space-y-4">
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
+            <Bell size={12}/> Alarmes
+          </label>
+
+          {/* Dias da Semana */}
+          <div className="flex justify-between items-center bg-white/5 p-4 rounded-[32px] border border-white/5">
+            {weekDays.map(day => (
+              <button
+                key={day.value}
+                type="button"
+                onClick={() => toggleDay(day.value)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  type === AlarmType.WEEKLY && customDays.includes(day.value)
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/40'
+                    : 'bg-white/5 text-slate-600 hover:bg-white/10'
+                }`}
+              >
+                {day.label}
+              </button>
+            ))}
           </div>
 
-          <section className="bg-white/5 rounded-[32px] p-6 space-y-6 border border-white/5">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-widest"><Repeat size={14} /> Frequência</div>
-            <div className="grid grid-cols-2 gap-2">
-              {[{ label: 'Diário', value: AlarmType.DAILY }, { label: 'Plantão', value: AlarmType.SHIFT }, { label: 'Ímpares', value: AlarmType.ODD_DAYS }, { label: 'Pares', value: AlarmType.EVEN_DAYS }].map((opt) => (
-                <button key={opt.value} type="button" onClick={() => setType(opt.value)} className={`py-4 rounded-2xl text-xs font-bold transition-all border ${type === opt.value ? 'bg-primary text-white border-primary shadow-lg' : 'bg-slate-900 text-slate-500 border-white/5'}`}>{opt.label}</button>
-              ))}
-            </div>
-            
-            {(type === AlarmType.DAILY || type === AlarmType.CUSTOM) && (
-              <div className="pt-6 border-t border-white/5 flex justify-between px-1">
-                {WEEK_DAYS.map((day) => (
-                  <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`w-10 h-10 rounded-full text-xs font-black transition-all ${customDays.includes(day.value) ? 'bg-primary text-white shadow-lg scale-110' : 'bg-slate-800 text-slate-600'}`}>{day.label}</button>
+          {/* Escalas (Atalhos) */}
+          <div className="grid grid-cols-4 gap-2">
+            {[
+              { label: '5x2', val: 5, shift: false },
+              { label: '6x1', val: 6, shift: false },
+              { label: '12x36', val: 2, shift: true },
+              { label: '24x72', val: 4, shift: true }
+            ].map(item => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => item.shift ? selectShift(item.val) : applyPresetWeek(item.label)}
+                className={`py-4 rounded-2xl text-[10px] font-black border transition-all ${
+                  !isPremium ? 'opacity-40 border-slate-800' : 'bg-white/5 border-indigo-500/20 active:bg-indigo-600'
+                } ${type === AlarmType.SHIFT && interval === item.val ? 'bg-indigo-600 border-transparent shadow-lg shadow-indigo-600/20' : ''}`}
+              >
+                {item.label} {!isPremium && <Lock size={8} className="inline ml-0.5 text-amber-500"/>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sons (Lista Suspensa) */}
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+            Escolha o Som
+          </label>
+          
+          <div className="bg-white/5 rounded-[32px] border border-white/10 overflow-hidden transition-all duration-300">
+            {/* Botão Sons */}
+            <button
+              type="button"
+              onClick={() => setShowSoundList(!showSoundList)}
+              className="w-full flex items-center justify-between p-5 hover:bg-white/5 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center text-indigo-500">
+                  <Music size={20} />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm font-bold text-white uppercase tracking-widest">Sons</div>
+                  <div className="text-[10px] text-indigo-400 font-bold italic">{sound.name}</div>
+                </div>
+              </div>
+              {showSoundList ? <ChevronUp className="text-slate-500"/> : <ChevronDown className="text-slate-500"/>}
+            </button>
+
+            {/* Lista suspensa de rolagem interna */}
+            {showSoundList && (
+              <div className="max-h-64 overflow-y-auto divide-y divide-white/5 scrollbar-hide border-t border-white/5 animate-in slide-in-from-top-4 duration-300">
+                {/* Meus Sons */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="flex items-center gap-4 p-4 hover:bg-white/10 active:bg-indigo-600/20 cursor-pointer transition-colors"
+                >
+                  <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
+                    <Upload size={14} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-black text-white uppercase tracking-tighter italic">Meus Sons</div>
+                    <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">Buscar no dispositivo</div>
+                  </div>
+                  {sound.uri.startsWith('custom_') && <Check size={16} className="text-indigo-500" />}
+                </div>
+
+                {/* Sons do Android */}
+                {systemSounds.map((s, idx) => (
+                  <div 
+                    key={idx} 
+                    onClick={() => {
+                      setSound({ uri: s.uri, name: s.name });
+                      setShowSoundList(false);
+                    }} 
+                    className={`flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors ${sound.uri === s.uri ? 'bg-indigo-600/10' : ''}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${sound.uri === s.uri ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-600'}`}>
+                      <Smartphone size={14} />
+                    </div>
+                    <div className={`flex-1 text-xs ${sound.uri === s.uri ? 'text-white font-bold' : 'text-slate-400'}`}>
+                      {s.name}
+                    </div>
+                    {sound.uri === s.uri && <Check size={16} className="text-indigo-500" />}
+                  </div>
                 ))}
               </div>
             )}
-          </section>
-
-          <section className="bg-white/5 rounded-[32px] p-6 space-y-8 border border-white/5">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary tracking-widest"><Headphones size={14} /> Toque e Volume</div>
-            <div className="grid grid-cols-2 gap-3">
-              <button type="button" disabled={isProcessingFile} onClick={() => fileInputRef.current?.click()} className={`flex flex-col items-center justify-center p-6 rounded-[32px] border transition-all gap-3 ${soundUri.startsWith('custom_') ? 'bg-primary/20 border-primary' : 'bg-slate-900 border-white/5'}`}>
-                {isProcessingFile ? <Loader2 size={24} className="animate-spin text-primary" /> : <Music2 size={24} className={soundUri.startsWith('custom_') ? 'text-primary' : 'text-slate-500'} />}
-                <div className="text-center">
-                  <span className={`text-[11px] font-black uppercase tracking-widest block ${soundUri.startsWith('custom_') ? 'text-white' : 'text-slate-400'}`}>Músicas</span>
-                  <span className="text-[9px] text-slate-600 font-bold block mt-0.5">Explorar Arquivos</span>
-                </div>
-                <input ref={fileInputRef} type="file" accept="audio/*" className="hidden" onChange={handleFileChange} />
-              </button>
-
-              <button type="button" onClick={() => setShowPresetsList(!showPresetsList)} className={`flex flex-col items-center justify-center p-6 rounded-[32px] border transition-all gap-3 ${!soundUri.startsWith('custom_') ? 'bg-primary/20 border-primary' : 'bg-slate-900 border-white/5'}`}>
-                <Bell size={24} className={!soundUri.startsWith('custom_') ? 'text-primary' : 'text-slate-500'} />
-                <div className="text-center">
-                  <span className={`text-[11px] font-black uppercase tracking-widest block ${!soundUri.startsWith('custom_') ? 'text-white' : 'text-slate-400'}`}>Sons</span>
-                  <span className="text-[9px] text-slate-600 font-bold block mt-0.5">Sons do App</span>
-                </div>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between bg-slate-900/50 p-4 rounded-2xl border border-white/5">
-              <div className="flex items-center gap-3 overflow-hidden">
-                <div className="p-2 bg-primary/10 rounded-lg text-primary shrink-0"><FileAudio size={16} /></div>
-                <div className="overflow-hidden"><span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Som Atual</span><span className="text-xs font-bold text-white truncate block">{soundName}</span></div>
-              </div>
-              <button type="button" onClick={() => handlePreview(soundUri)} className={`p-3 rounded-xl ${isPreviewing === soundUri ? 'bg-primary text-white scale-110 shadow-lg' : 'bg-white/5 text-slate-400'}`}>
-                {isPreviewing === soundUri ? <Square size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}
-              </button>
-            </div>
-
-            {showPresetsList && (
-              <div className="bg-slate-900/80 backdrop-blur-md rounded-[28px] p-4 border border-white/10 animate-in slide-in-from-top-4">
-                <div className="grid grid-cols-1 gap-1 max-h-[200px] overflow-y-auto custom-scroll">
-                  {PRESET_SOUNDS.map((sound) => (
-                    <button key={sound.id} type="button" onClick={() => { setSoundUri(sound.id); setSoundName(sound.name); }} className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${soundUri === sound.id ? 'bg-primary/20 text-white' : 'hover:bg-white/5 text-slate-500'}`}>
-                      <span className="text-sm font-bold">{sound.name}</span>
-                      {soundUri === sound.id && <Check size={14} className="text-primary" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="pt-4 space-y-5">
-              <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Volume2 size={14} className="text-primary"/> Volume</span>
-                <span className="text-primary font-mono">{Math.round(volume * 100)}%</span>
-              </div>
-              <input type="range" min="0" max="1" step="0.05" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
-            </div>
-          </section>
-
-          <section className="bg-white/5 rounded-[32px] p-6 space-y-8 border border-white/5">
-            <div className="space-y-5">
-              <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><BellOff size={14} className="text-primary"/> Tempo de Duração</span>
-                <span className="text-primary font-mono">{Math.floor(durationSeconds/60)}m</span>
-              </div>
-              <input type="range" min="60" max="1800" step="60" value={durationSeconds} onChange={(e) => setDurationSeconds(parseInt(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
-            </div>
-
-            <div className="pt-6 border-t border-white/5 space-y-5">
-              <div className="flex justify-between items-center text-xs font-bold">
-                <span className="text-slate-400 flex items-center gap-2 uppercase tracking-widest"><Timer size={14} className="text-primary"/> Tempo Soneca</span>
-                <span className={`font-mono transition-colors ${snoozeSeconds === 0 ? 'text-red-500 font-black' : 'text-primary'}`}>
-                  {snoozeSeconds === 0 ? 'DESATIVADA' : `${Math.floor(snoozeSeconds/60)}m`}
-                </span>
-              </div>
-              <input type="range" min="0" max="1200" step="60" value={snoozeSeconds} onChange={(e) => setSnoozeSeconds(parseInt(e.target.value))} className="w-full accent-primary h-1.5 bg-slate-800 rounded-lg appearance-none" />
-              <p className="text-[9px] text-slate-600 font-bold uppercase tracking-wider text-center">Deslize para o zero para desativar a soneca</p>
-            </div>
-          </section>
+            <input type="file" ref={fileInputRef} hidden accept="audio/*" onChange={handleFileUpload} />
+          </div>
         </div>
 
-        <div className="p-8 bg-[#020617] border-t border-white/5 sticky bottom-0 z-10 safe-bottom">
-          <button type="submit" className="w-full py-5 bg-primary hover:bg-indigo-500 text-white font-black uppercase tracking-[0.3em] rounded-2xl shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-3">
-            <Check size={20} /> Salvar Alarme
-          </button>
+        {/* Duração e Soneca */}
+        <div className={`grid grid-cols-2 gap-4 ${!isPremium ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="bg-white/5 rounded-[32px] p-5 border border-white/5 space-y-4">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Duração: <b className="text-indigo-400 font-mono text-sm">{duration}s</b></span>
+            <input type="range" min="5" max="60" step="5" value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+          </div>
+          <div className="bg-white/5 rounded-[32px] p-5 border border-white/5 space-y-4">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Soneca: <b className="text-indigo-400 font-mono text-sm">{snooze === 0 ? 'OFF' : `${snooze}m`}</b></span>
+            <input type="range" min="0" max="15" step="1" value={snooze} onChange={(e) => setSnooze(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+          </div>
         </div>
+
+        <button type="submit" className="w-full py-6 bg-indigo-600 rounded-[32px] font-black uppercase italic tracking-[0.2em] text-lg shadow-2xl shadow-indigo-600/30 active:scale-95 transition-all text-white">
+          SALVAR ALARME
+        </button>
       </form>
+
+      {/* Popup de Data */}
+      {showDatePicker && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-xl p-6">
+          <div className="bg-[#0b0f1a] w-full max-w-sm rounded-[40px] p-8 border border-white/10 space-y-6 text-center animate-in zoom-in duration-300 shadow-3xl">
+            <div className="w-20 h-20 bg-indigo-600/10 rounded-[30px] flex items-center justify-center text-indigo-500 mx-auto mb-4">
+              <Calendar size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black text-white uppercase italic">Início do Plantão</h3>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Selecione o primeiro dia da escala</p>
+            </div>
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-white/5 border border-indigo-500/30 rounded-2xl py-5 px-4 text-center text-indigo-400 font-mono font-bold focus:outline-none"
+            />
+            <button 
+              onClick={() => setShowDatePicker(false)}
+              className="w-full py-5 bg-indigo-600 rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
+            >
+              DEFINIR INÍCIO
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
