@@ -16,7 +16,6 @@ import androidx.activity.ComponentActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.util.Log
-import java.io.IOException
 
 class MainActivity : ComponentActivity() {
     private lateinit var webView: WebView
@@ -26,36 +25,31 @@ class MainActivity : ComponentActivity() {
         setupLockScreenFlags()
         checkPermissions()
         
-        // Log de diagnóstico
-        debugListAssets()
-
         webView = WebView(this)
         configureWebView()
         
         webView.addJavascriptInterface(WebAppInterface(this), "AndroidAlarm")
         
-        // Tentativa de carregar o index.html
+        // Caminho dos arquivos na pasta assets/www
         val url = "file:///android_asset/www/index.html"
-        Log.d("CRONOS", "Iniciando carregamento da WebView: $url")
         
+        Log.d("CRONOS", "Carregando interface: $url")
         webView.loadUrl(url)
         setContentView(webView)
+        
+        // Verifica se a Activity foi iniciada por um alarme
+        handleAlarmIntent(intent)
     }
 
-    private fun debugListAssets() {
-        try {
-            val rootFiles = assets.list("")
-            Log.d("CRONOS_DIAG", "Raiz dos Assets contém: ${rootFiles?.joinToString(", ")}")
-            
-            val wwwFiles = assets.list("www")
-            if (wwwFiles.isNullOrEmpty()) {
-                Log.e("CRONOS_DIAG", "ERRO: Pasta 'www' não encontrada ou vazia nos assets do APK!")
-            } else {
-                Log.d("CRONOS_DIAG", "Pasta 'www' ok. Arquivos: ${wwwFiles.joinToString(", ")}")
-            }
-        } catch (e: IOException) {
-            Log.e("CRONOS_DIAG", "Falha catastrófica ao acessar Assets: ${e.message}")
-        }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAlarmIntent(intent)
+    }
+
+    private fun handleAlarmIntent(intent: Intent?) {
+        // Dispara um evento customizado no JavaScript para o React abrir o overlay do alarme
+        webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('alarmTriggered'));", null)
     }
 
     private fun checkPermissions() {
@@ -85,8 +79,13 @@ class MainActivity : ComponentActivity() {
 
     private fun configureWebView() {
         val settings = webView.settings
+        
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.setSupportStorage(true)
+        
+        settings.cacheMode = WebSettings.LOAD_DEFAULT
         settings.allowFileAccess = true
         settings.allowContentAccess = true
         settings.allowFileAccessFromFileURLs = true
@@ -96,29 +95,16 @@ class MainActivity : ComponentActivity() {
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
 
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                Log.d("WebViewConsole", "[JS] ${consoleMessage?.message()}")
-                return true
-            }
-        }
-
+        webView.webChromeClient = WebChromeClient()
+        
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                Log.d("CRONOS", "Página carregada com sucesso: $url")
+                super.onPageFinished(view, url)
+                // Caso o app tenha acabado de carregar, verifica se deve disparar o alarme
+                handleAlarmIntent(intent)
             }
-
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                val failingUrl = request?.url.toString()
-                Log.e("WebViewError", "Erro na URL: $failingUrl | Descrição: ${error?.description}")
-                
-                if (failingUrl.endsWith("index.html")) {
-                    val errorHtml = "<html><body style='background:#020617;color:white;display:flex;justify-content:center;align-items:center;height:100vh;text-align:center;font-family:sans-serif;'><div>" +
-                            "<h1>CRONOS: Arquivo não encontrado</h1>" +
-                            "<p>O Android não incluiu os arquivos da pasta assets/www no APK.</p>" +
-                            "<p style='color:#6366f1'>Clique em Build -> Rebuild Project</p></div></body></html>"
-                    view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
-                }
+                Log.e("CRONOS", "Erro WebView: ${error?.description}")
             }
         }
     }
@@ -134,7 +120,17 @@ class MainActivity : ComponentActivity() {
                 mContext, 0, intent, 
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+            
+            // Verificação de permissão para alarmes exatos (Android 12+)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                } else {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+                }
+            } else {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, timeInMillis, pendingIntent)
+            }
         }
 
         @JavascriptInterface

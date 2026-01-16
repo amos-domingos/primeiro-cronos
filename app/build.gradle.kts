@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -27,10 +27,11 @@ android {
         }
     }
     
-    // OPÇÃO 3: Configuração explícita de assets
+    // Configuração de Assets baseada na sua imagem
     sourceSets {
         getByName("main") {
-            assets.srcDirs("src/main/assets")
+            // Se a pasta assets está logo dentro de 'app', este comando garante o vínculo
+            assets.srcDirs(file("src/main/assets"), file("assets"))
         }
     }
 
@@ -45,12 +46,9 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.activity)
-    implementation(libs.androidx.constraintlayout)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.activity:activity-ktx:1.9.3")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
 }
