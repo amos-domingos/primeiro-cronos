@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Alarm, AlarmType } from '../types';
 import { generateId } from '../utils/alarmUtils';
-import { X, Music, Smartphone, Lock, Upload, Check, Tag, Calendar, Bell, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Music, Smartphone, Lock, Upload, Tag, Calendar, Bell, ChevronDown, ChevronUp } from 'lucide-react';
 import { audioStorageService } from '../services/audioStorageService';
 
 interface SystemSound {
@@ -34,13 +34,8 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const weekDays = [
-    { label: 'D', value: 0 },
-    { label: 'S', value: 1 },
-    { label: 'T', value: 2 },
-    { label: 'Q', value: 3 },
-    { label: 'Q', value: 4 },
-    { label: 'S', value: 5 },
-    { label: 'S', value: 6 },
+    { label: 'D', value: 0 }, { label: 'S', value: 1 }, { label: 'T', value: 2 },
+    { label: 'Q', value: 3 }, { label: 'Q', value: 4 }, { label: 'S', value: 5 }, { label: 'S', value: 6 },
   ];
 
   useEffect(() => {
@@ -52,17 +47,8 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
       if (e.detail && Array.isArray(e.detail)) setSystemSounds(e.detail);
     };
 
-    const handleSystemSound = (e: any) => {
-      if (e.detail) setSound({ uri: e.detail.uri, name: e.detail.name });
-    };
-
     window.addEventListener('systemRingtonesLoaded', handleRingtonesLoaded);
-    window.addEventListener('systemSoundSelected', handleSystemSound);
-    
-    return () => {
-      window.removeEventListener('systemRingtonesLoaded', handleRingtonesLoaded);
-      window.removeEventListener('systemSoundSelected', handleSystemSound);
-    };
+    return () => window.removeEventListener('systemRingtonesLoaded', handleRingtonesLoaded);
   }, []);
 
   const toggleDay = (day: number) => {
@@ -122,9 +108,8 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4">
-      <form onSubmit={handleSubmit} className="bg-[#0b0f1a] w-full max-w-lg rounded-t-[40px] sm:rounded-[40px] border-t sm:border border-white/10 p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] scrollbar-hide">
+      <form onSubmit={handleSubmit} className="bg-[#0b0f1a] w-full max-w-lg rounded-t-[40px] border-t border-white/10 p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[95vh] scrollbar-hide">
         
-        {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex flex-col">
             <h2 className="text-xl font-black uppercase italic tracking-tighter text-white">Configurar Alarme</h2>
@@ -135,21 +120,19 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
           </button>
         </div>
 
-        {/* Nome do Alarme */}
         <div className="space-y-2">
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-            <Tag size={12}/> Nome do Alarme
+            <Tag size={12}/> Nome
           </label>
           <input 
             type="text"
-            placeholder="Digite o nome deste alarme..."
+            placeholder="Nome do alarme..."
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white placeholder:text-slate-700 focus:outline-none focus:border-indigo-500/50 transition-colors"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white focus:outline-none focus:border-indigo-500/50"
           />
         </div>
 
-        {/* Hora */}
         <div className="flex justify-center py-2">
           <input 
             type="time" 
@@ -160,13 +143,11 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
           />
         </div>
 
-        {/* Seção ALARMES (Dias e Escalas) */}
         <div className="space-y-4">
           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-            <Bell size={12}/> Alarmes
+            <Bell size={12}/> Dias de Execução
           </label>
 
-          {/* Dias da Semana */}
           <div className="flex justify-between items-center bg-white/5 p-4 rounded-[32px] border border-white/5">
             {weekDays.map(day => (
               <button
@@ -184,7 +165,6 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
             ))}
           </div>
 
-          {/* Escalas (Atalhos) */}
           <div className="grid grid-cols-4 gap-2">
             {[
               { label: '5x2', val: 5, shift: false },
@@ -197,23 +177,17 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
                 type="button"
                 onClick={() => item.shift ? selectShift(item.val) : applyPresetWeek(item.label)}
                 className={`py-4 rounded-2xl text-[10px] font-black border transition-all ${
-                  !isPremium ? 'opacity-40 border-slate-800' : 'bg-white/5 border-indigo-500/20 active:bg-indigo-600'
-                } ${type === AlarmType.SHIFT && interval === item.val ? 'bg-indigo-600 border-transparent shadow-lg shadow-indigo-600/20' : ''}`}
+                  type === AlarmType.SHIFT && interval === item.val ? 'bg-indigo-600 text-white' : 'bg-white/5 border-white/10 text-slate-400'
+                }`}
               >
-                {item.label} {!isPremium && <Lock size={8} className="inline ml-0.5 text-amber-500"/>}
+                {item.label} {!isPremium && item.shift && <Lock size={8} className="inline ml-0.5 text-amber-500"/>}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Sons (Lista Suspensa) */}
         <div className="space-y-3">
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
-            Escolha o Som
-          </label>
-          
-          <div className="bg-white/5 rounded-[32px] border border-white/10 overflow-hidden transition-all duration-300">
-            {/* Botão Sons */}
+          <div className="bg-white/5 rounded-[32px] border border-white/10 overflow-hidden">
             <button
               type="button"
               onClick={() => setShowSoundList(!showSoundList)}
@@ -224,48 +198,22 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
                   <Music size={20} />
                 </div>
                 <div className="text-left">
-                  <div className="text-sm font-bold text-white uppercase tracking-widest">Sons</div>
+                  <div className="text-sm font-bold text-white">Som</div>
                   <div className="text-[10px] text-indigo-400 font-bold italic">{sound.name}</div>
                 </div>
               </div>
-              {showSoundList ? <ChevronUp className="text-slate-500"/> : <ChevronDown className="text-slate-500"/>}
+              {showSoundList ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
 
-            {/* Lista suspensa de rolagem interna */}
             {showSoundList && (
-              <div className="max-h-64 overflow-y-auto divide-y divide-white/5 scrollbar-hide border-t border-white/5 animate-in slide-in-from-top-4 duration-300">
-                {/* Meus Sons */}
-                <div 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="flex items-center gap-4 p-4 hover:bg-white/10 active:bg-indigo-600/20 cursor-pointer transition-colors"
-                >
-                  <div className="w-8 h-8 bg-indigo-500/20 rounded-lg flex items-center justify-center text-indigo-400">
-                    <Upload size={14} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs font-black text-white uppercase tracking-tighter italic">Meus Sons</div>
-                    <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest italic">Buscar no dispositivo</div>
-                  </div>
-                  {sound.uri.startsWith('custom_') && <Check size={16} className="text-indigo-500" />}
+              <div className="max-h-64 overflow-y-auto divide-y divide-white/5 border-t border-white/5">
+                <div onClick={() => fileInputRef.current?.click()} className="flex items-center gap-4 p-4 hover:bg-white/10 cursor-pointer">
+                  <Upload size={14} className="text-indigo-400"/>
+                  <span className="text-xs font-black text-white uppercase italic">Meus Sons</span>
                 </div>
-
-                {/* Sons do Android */}
                 {systemSounds.map((s, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => {
-                      setSound({ uri: s.uri, name: s.name });
-                      setShowSoundList(false);
-                    }} 
-                    className={`flex items-center gap-4 p-4 hover:bg-white/5 cursor-pointer transition-colors ${sound.uri === s.uri ? 'bg-indigo-600/10' : ''}`}
-                  >
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${sound.uri === s.uri ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-600'}`}>
-                      <Smartphone size={14} />
-                    </div>
-                    <div className={`flex-1 text-xs ${sound.uri === s.uri ? 'text-white font-bold' : 'text-slate-400'}`}>
-                      {s.name}
-                    </div>
-                    {sound.uri === s.uri && <Check size={16} className="text-indigo-500" />}
+                  <div key={idx} onClick={() => { setSound({ uri: s.uri, name: s.name }); setShowSoundList(false); }} className="p-4 text-xs text-slate-400 hover:bg-white/5">
+                    {s.name}
                   </div>
                 ))}
               </div>
@@ -274,46 +222,28 @@ export const AlarmForm: React.FC<AlarmFormProps> = ({ initialData, isPremium, on
           </div>
         </div>
 
-        {/* Duração e Soneca */}
-        <div className={`grid grid-cols-2 gap-4 ${!isPremium ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="grid grid-cols-2 gap-4">
           <div className="bg-white/5 rounded-[32px] p-5 border border-white/5 space-y-4">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Duração: <b className="text-indigo-400 font-mono text-sm">{duration}s</b></span>
-            <input type="range" min="5" max="60" step="5" value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Duração: <b className="text-indigo-400">{duration}s</b></span>
+            <input type="range" min="5" max="60" step="5" value={duration} onChange={(e) => setDuration(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-indigo-500" />
           </div>
           <div className="bg-white/5 rounded-[32px] p-5 border border-white/5 space-y-4">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Soneca: <b className="text-indigo-400 font-mono text-sm">{snooze === 0 ? 'OFF' : `${snooze}m`}</b></span>
-            <input type="range" min="0" max="15" step="1" value={snooze} onChange={(e) => setSnooze(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Soneca: <b className="text-indigo-400">{snooze}m</b></span>
+            <input type="range" min="0" max="15" step="1" value={snooze} onChange={(e) => setSnooze(parseInt(e.target.value))} className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none accent-indigo-500" />
           </div>
         </div>
 
-        <button type="submit" className="w-full py-6 bg-indigo-600 rounded-[32px] font-black uppercase italic tracking-[0.2em] text-lg shadow-2xl shadow-indigo-600/30 active:scale-95 transition-all text-white">
-          SALVAR ALARME
+        <button type="submit" className="w-full py-6 bg-indigo-600 rounded-[32px] font-black uppercase italic tracking-widest text-lg shadow-2xl active:scale-95 transition-all text-white">
+          SALVAR
         </button>
       </form>
 
-      {/* Popup de Data */}
       {showDatePicker && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/95 backdrop-blur-xl p-6">
-          <div className="bg-[#0b0f1a] w-full max-w-sm rounded-[40px] p-8 border border-white/10 space-y-6 text-center animate-in zoom-in duration-300 shadow-3xl">
-            <div className="w-20 h-20 bg-indigo-600/10 rounded-[30px] flex items-center justify-center text-indigo-500 mx-auto mb-4">
-              <Calendar size={32} />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-black text-white uppercase italic">Início do Plantão</h3>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Selecione o primeiro dia da escala</p>
-            </div>
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full bg-white/5 border border-indigo-500/30 rounded-2xl py-5 px-4 text-center text-indigo-400 font-mono font-bold focus:outline-none"
-            />
-            <button 
-              onClick={() => setShowDatePicker(false)}
-              className="w-full py-5 bg-indigo-600 rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all"
-            >
-              DEFINIR INÍCIO
-            </button>
+          <div className="bg-[#0b0f1a] w-full max-w-sm rounded-[40px] p-8 border border-white/10 space-y-6 text-center shadow-3xl">
+            <h3 className="text-xl font-black text-white uppercase italic">Início do Plantão</h3>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-white/5 border border-indigo-500/30 rounded-2xl py-5 text-center text-indigo-400 font-mono font-bold focus:outline-none"/>
+            <button onClick={() => setShowDatePicker(false)} className="w-full py-5 bg-indigo-600 rounded-3xl font-black uppercase text-xs">CONCLUIR</button>
           </div>
         </div>
       )}

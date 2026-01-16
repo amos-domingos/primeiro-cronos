@@ -14,11 +14,10 @@ export const checkAlarmCondition = (alarm: Alarm, now: Date): boolean => {
     const startDate = new Date(alarm.date + 'T00:00:00');
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Calcula a diferença em dias
     const diffTime = today.getTime() - startDate.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return false; // Ainda não começou
+    if (diffDays < 0) return false;
     return diffDays % alarm.intervalDays === 0;
   }
 

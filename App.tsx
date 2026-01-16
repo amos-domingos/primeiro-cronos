@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Clock, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Plus, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { Alarm, AppSettings } from './types';
 import { AlarmList } from './components/AlarmList';
 import { AlarmForm } from './components/AlarmForm';
 import { ActiveAlarmOverlay } from './components/ActiveAlarmOverlay';
+import { checkAlarmCondition } from './utils/alarmUtils';
 
 const STORAGE_KEY = 'cronos_v3_data';
 const INSTALL_KEY = 'cronos_install_timestamp';
@@ -18,7 +19,6 @@ function App() {
   const [installDate, setInstallDate] = useState<number>(0);
 
   useEffect(() => {
-    // Inicializa Trial
     let storedInstall = localStorage.getItem(INSTALL_KEY);
     if (!storedInstall) {
       const now = Date.now();
@@ -40,8 +40,9 @@ function App() {
       const s = now.getSeconds();
       
       if (s === 0) {
-        const currentAlarms = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-        const toTrigger = currentAlarms.find((a: Alarm) => a.isEnabled && a.time === `${h}:${m}`);
+        const currentAlarms: Alarm[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        const toTrigger = currentAlarms.find(a => a.isEnabled && a.time === `${h}:${m}` && checkAlarmCondition(a, now));
+        
         if (toTrigger) {
           if ((window as any).AndroidAlarm) {
              (window as any).AndroidAlarm.scheduleAlarm(Date.now(), toTrigger.label);
@@ -74,16 +75,12 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#020617] text-white selection:bg-indigo-500/30">
+    <div className="flex flex-col min-h-screen bg-[#020617] text-white overflow-hidden">
       <header className="p-8 pb-4 space-y-4">
         <div className="flex justify-between items-center">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500">Cronos Alarme</p>
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPremium ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-            {isPremium ? (
-              <><ShieldCheck size={12}/> Trial: {daysRemaining} dias</>
-            ) : (
-              <><ShieldAlert size={12}/> Expirado</>
-            )}
+            {isPremium ? <><ShieldCheck size={12}/> Trial: {daysRemaining}d</> : <><ShieldAlert size={12}/> Expirado</>}
           </div>
         </div>
         <h1 className="text-7xl font-mono font-bold tracking-tighter">
@@ -91,7 +88,7 @@ function App() {
         </h1>
       </header>
 
-      <main className="flex-1 p-6 pb-32">
+      <main className="flex-1 p-6 pb-32 overflow-y-auto scrollbar-hide">
         <AlarmList 
           alarms={alarms} 
           onToggle={(id, val) => {
@@ -108,37 +105,21 @@ function App() {
         />
       </main>
 
-      {/* Crédito no rodapé esquerdo - Agora respeitando o case original */}
-      <div className="fixed bottom-10 left-8 z-40 pointer-events-none select-none">
-        <p className="text-[9px] font-black tracking-[0.2em] text-slate-700/50 italic">
-          by AmósDomingos
+      <div className="fixed bottom-10 left-8 z-40">
+        <p className="text-[9px] font-black tracking-[0.2em] text-slate-700 uppercase italic">
+          by Amós Domingos
         </p>
       </div>
 
       <button 
         onClick={() => { setEditingAlarm(null); setIsFormOpen(true); }}
-        className="fixed bottom-10 right-10 w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-500/40 active:scale-90 transition-all z-50"
+        className="fixed bottom-10 right-10 w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl active:scale-95 transition-all z-50"
       >
         <Plus size={40} className="text-white" />
       </button>
 
-      {isFormOpen && (
-        <AlarmForm 
-          initialData={editingAlarm} 
-          isPremium={isPremium} 
-          onSave={handleSave} 
-          onCancel={() => setIsFormOpen(false)} 
-        />
-      )}
-      
-      {activeAlarm && (
-        <ActiveAlarmOverlay 
-          alarm={activeAlarm} 
-          settings={{ batterySaver: false, disableWakeLock: false, lowFiUI: false, disableHaptics: false, volumeBoost: true }} 
-          onDismiss={() => setActiveAlarm(null)} 
-          onSnooze={() => setActiveAlarm(null)} 
-        />
-      )}
+      {isFormOpen && <AlarmForm initialData={editingAlarm} isPremium={isPremium} onSave={handleSave} onCancel={() => setIsFormOpen(false)} />}
+      {activeAlarm && <ActiveAlarmOverlay alarm={activeAlarm} settings={{ batterySaver: false, disableWakeLock: false, lowFiUI: false, disableHaptics: false, volumeBoost: true }} onDismiss={() => setActiveAlarm(null)} onSnooze={() => setActiveAlarm(null)} />}
     </div>
   );
 }
