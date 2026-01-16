@@ -1,6 +1,5 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Settings, CheckCircle2, ShieldAlert, X, Smartphone, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Settings, CheckCircle2, X } from 'lucide-react';
 import { Alarm, AppSettings } from './types';
 import { checkAlarmCondition, getTimeUntilNextOccurrence } from './utils/alarmUtils';
 import { AlarmList } from './components/AlarmList';
@@ -29,12 +28,8 @@ function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [lastSavedId, setLastSavedId] = useState<string | null>(null);
-  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-    setIsStandalone(isPWA);
-
     const storedAlarms = localStorage.getItem(STORAGE_KEY);
     if (storedAlarms) {
       try { setAlarms(JSON.parse(storedAlarms)); } catch (e) { console.error(e); }
@@ -44,40 +39,53 @@ function App() {
       try { setSettings(JSON.parse(storedSettings)); } catch (e) { console.error(e); }
     }
 
-    if ("Notification" in window && Notification.permission !== "granted") {
-      Notification.requestPermission();
-    }
+    // Listener para quando o alarme disparar via nativo
+    window.addEventListener('alarmTriggered', () => {
+      // O Android já abriu a MainActivity, agora o React precisa identificar qual alarme é
+      const now = new Date();
+      const hour = now.getHours();
+      const min = now.getMinutes();
+      
+      // Busca um alarme habilitado para este minuto
+      const triggered = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]').find((a: Alarm) => {
+        const [aH, aM] = a.time.split(':').map(Number);
+        return a.isEnabled && aH === hour && aM === min;
+      });
+
+      if (triggered) setActiveAlarm(triggered);
+    });
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = new Date();
-      setCurrentTime(now);
-      
-      if (!activeAlarm && now.getSeconds() === 0) {
-        const hour = now.getHours();
-        const min = now.getMinutes();
-        
-        alarms.forEach(alarm => {
-          if (!alarm.isEnabled) return;
-          const [aH, aM] = alarm.time.split(':').map(Number);
-          if (aH === hour && aM === min && checkAlarmCondition(alarm, now)) {
-            setActiveAlarm(alarm);
-          }
-        });
-      }
+      setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
-  }, [alarms, activeAlarm]);
+  }, []);
 
   const handleSaveAlarm = (alarm: Alarm) => {
-    setAlarms(prev => {
-      const exists = prev.find(a => a.id === alarm.id);
-      const next = exists ? prev.map(a => a.id === alarm.id ? alarm : a) : [...prev, alarm];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+    const updatedAlarms = alarms.find(a => a.id === alarm.id) 
+      ? alarms.map(a => a.id === alarm.id ? alarm : a) 
+      : [...alarms, alarm];
     
+    setAlarms(updatedAlarms);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedAlarms));
+    
+    // AGENDA NO ANDROID NATIVO
+    if (alarm.isEnabled && (window as any).AndroidAlarm) {
+      const [h, m] = alarm.time.split(':').map(Number);
+      const nextDate = new Date();
+      nextDate.setHours(h, m, 0, 0);
+      
+      // Se já passou o horário hoje, agenda para amanhã
+      if (nextDate.getTime() <= Date.now()) {
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+      
+      // Chamada para o Kotlin
+      (window as any).AndroidAlarm.scheduleAlarm(nextDate.getTime(), alarm.label || "Alarme Cronos");
+    }
+
     setLastSavedId(alarm.id);
     setTimeout(() => setLastSavedId(null), 3000);
 
@@ -89,20 +97,22 @@ function App() {
     setEditingAlarm(null);
   };
 
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
-    setSettings(prev => {
-      const next = { ...prev, ...newSettings };
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-      return next;
-    });
+  const handleToggle = (id: string, val: boolean) => {
+    const next = alarms.map(a => a.id === id ? { ...a, isEnabled: val } : a);
+    setAlarms(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    
+    // Se ligou, reagenda o alarme no sistema
+    if (val) {
+      const alarm = next.find(a => a.id === id);
+      if (alarm) handleSaveAlarm(alarm);
+    }
   };
 
-  const handleToggle = (id: string, val: boolean) => {
-    setAlarms(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, isEnabled: val } : a);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      return next;
-    });
+  const updateSettings = (newSettings: Partial<AppSettings>) => {
+    const next = { ...settings, ...newSettings };
+    setSettings(next);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   };
 
   return (
@@ -121,10 +131,7 @@ function App() {
               {currentTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <button 
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-14 h-14 flex items-center justify-center rounded-[24px] bg-white/5 border border-white/10 active:scale-90 transition-transform"
-          >
+          <button onClick={() => setIsSettingsOpen(true)} className="w-14 h-14 flex items-center justify-center rounded-[24px] bg-white/5 border border-white/10 active:scale-90 transition-transform">
             <Settings size={24} className="text-slate-300" />
           </button>
         </div>
@@ -144,57 +151,29 @@ function App() {
         />
       </main>
 
-      {/* Settings Modal (Material 3 Style) */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in">
           <div className="bg-[#0b1024] w-full max-w-md rounded-t-[40px] sm:rounded-[40px] border-t sm:border border-white/10 shadow-2xl flex flex-col animate-in slide-in-from-bottom-10">
              <div className="p-8 flex justify-between items-center border-b border-white/5">
                 <h3 className="text-2xl font-bold">Configurações</h3>
-                <button onClick={() => setIsSettingsOpen(false)} className="p-3 bg-white/5 rounded-full text-slate-400">
-                   <X size={24} />
-                </button>
+                <button onClick={() => setIsSettingsOpen(false)} className="p-3 bg-white/5 rounded-full text-slate-400"><X size={24} /></button>
              </div>
              <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh] custom-scroll">
-                <div className="space-y-6">
-                   <Switch 
-                     label="Sempre Ligado (Wake Lock)" 
-                     checked={!settings.disableWakeLock} 
-                     onChange={(val) => updateSettings({ disableWakeLock: !val })} 
-                   />
-                   <Switch 
-                     label="Volume Extra" 
-                     checked={settings.volumeBoost} 
-                     onChange={(val) => updateSettings({ volumeBoost: val })} 
-                   />
-                   <Switch 
-                     label="Vibração Tátil" 
-                     checked={!settings.disableHaptics} 
-                     onChange={(val) => updateSettings({ disableHaptics: !val })} 
-                   />
-                </div>
-                
+                <Switch label="Sempre Ligado (Wake Lock)" checked={!settings.disableWakeLock} onChange={(val) => updateSettings({ disableWakeLock: !val })} />
+                <Switch label="Volume Extra" checked={settings.volumeBoost} onChange={(val) => updateSettings({ volumeBoost: val })} />
+                <Switch label="Vibração Tátil" checked={!settings.disableHaptics} onChange={(val) => updateSettings({ disableHaptics: !val })} />
                 <div className="pt-6 border-t border-white/5 text-center">
-                   <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em]">
-                     Versão de Testes 3.5
-                   </p>
-                   <p className="text-[9px] font-bold text-primary mt-2 uppercase tracking-widest">
-                     Amós Domingos • Dev Sênior
-                   </p>
+                   <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em]">Versão de Testes 3.5</p>
+                   <p className="text-[9px] font-bold text-primary mt-2 uppercase tracking-widest">Amós Domingos • Dev Sênior</p>
                 </div>
              </div>
-             <div className="p-8">
-                <button onClick={() => setIsSettingsOpen(false)} className="w-full py-5 bg-primary text-white font-black uppercase tracking-widest rounded-[24px] shadow-xl shadow-primary/20">Concluído</button>
-             </div>
+             <div className="p-8"><button onClick={() => setIsSettingsOpen(false)} className="w-full py-5 bg-primary text-white font-black uppercase tracking-widest rounded-[24px]">Concluído</button></div>
           </div>
         </div>
       )}
 
-      {/* FAB - Floating Action Button (Material 3 Style) */}
       <div className="fixed bottom-12 left-0 right-0 flex justify-center z-40 pointer-events-none safe-bottom">
-        <button 
-          onClick={() => { setEditingAlarm(null); setIsFormOpen(true); }} 
-          className="pointer-events-auto w-20 h-20 bg-primary hover:bg-indigo-500 text-white rounded-[28px] shadow-[0_20px_50px_rgba(99,102,241,0.4)] flex items-center justify-center transition-all hover:scale-110 active:scale-90"
-        >
+        <button onClick={() => { setEditingAlarm(null); setIsFormOpen(true); }} className="pointer-events-auto w-20 h-20 bg-primary hover:bg-indigo-500 text-white rounded-[28px] shadow-[0_20px_50px_rgba(99,102,241,0.4)] flex items-center justify-center transition-all hover:scale-110 active:scale-90">
           <Plus size={40} strokeWidth={2.5} />
         </button>
       </div>

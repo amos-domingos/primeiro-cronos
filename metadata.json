@@ -1,7 +1,13 @@
 {
-  "name": "Cronos - Despertador Profissional",
-  "description": "Despertador com suporte a dias pares/ímpares, plantões 12x36 e controle total de áudio.",
+  "name": "CRONOS by Amós Domingos",
+  "description": "Despertador avançado para plantonistas e rotinas complexas.",
   "requestFramePermissions": [
-    "microphone"
+    "microphone",
+    "camera"
+  ],
+  "androidPermissions": [
+    "android.permission.WAKE_LOCK",
+    "android.permission.POST_NOTIFICATIONS",
+    "android.permission.SCHEDULE_EXACT_ALARM"
   ]
 }

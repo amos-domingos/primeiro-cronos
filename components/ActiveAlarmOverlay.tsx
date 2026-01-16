@@ -15,7 +15,6 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
   const [showVolumeHint, setShowVolumeHint] = useState(true);
 
   useEffect(() => {
-    // Wake Lock: Tenta manter a tela ligada se habilitado nas configurações
     let wakeLock: any = null;
     const requestWakeLock = async () => {
       if (settings.disableWakeLock) return;
@@ -36,18 +35,14 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
     const vol = alarm.volume ?? 1.0;
     const fade = alarm.fadeDurationSeconds ?? 0;
     
-    // Inicia áudio com prioridade
     audioService.startAlarm(uri, vibrate, pattern, vol, fade);
     
     const timer = setInterval(() => {
       setTime(new Date());
     }, 1000);
 
-    // Auto-dismiss após a duração definida
     const duration = (alarm.durationSeconds || 300) * 1000;
-    const autoStopTimer = setTimeout(() => onDismiss(), duration);
-
-    // Esconde aviso de volume após 10s
+    const autoStopTimer = setTimeout(() => handleDismiss(), duration);
     const hintTimer = setTimeout(() => setShowVolumeHint(false), 10000);
 
     return () => {
@@ -61,7 +56,29 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
         });
       }
     };
-  }, [alarm, onDismiss, settings.disableHaptics, settings.disableWakeLock]);
+  }, [alarm, settings]);
+
+  const handleDismiss = () => {
+    // Para o som no React
+    audioService.stopAlarm();
+    // Avisa o Android para parar a notificação e o serviço
+    if ((window as any).AndroidAlarm) {
+      (window as any).AndroidAlarm.stopAlarmService();
+    }
+    onDismiss();
+  };
+
+  const handleSnooze = () => {
+    audioService.stopAlarm();
+    if ((window as any).AndroidAlarm) {
+      (window as any).AndroidAlarm.stopAlarmService();
+      
+      // Agendar a próxima ocorrência da soneca
+      const nextTime = Date.now() + (alarm.snoozeSeconds * 1000);
+      (window as any).AndroidAlarm.scheduleAlarm(nextTime, `Soneca: ${alarm.label}`);
+    }
+    onSnooze();
+  };
 
   const formatSecondsLabel = (s: number) => {
     if (s < 60) return `${s}s`;
@@ -74,8 +91,6 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black overflow-hidden select-none">
-      
-      {/* Background Dinâmico de Alerta */}
       {!isEcoMode && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute inset-0 bg-primary/20 animate-pulse" />
@@ -117,7 +132,7 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
 
         <div className="flex flex-col gap-6 w-full mt-8">
           <button
-            onClick={onDismiss}
+            onClick={handleDismiss}
             className="group relative flex items-center justify-center gap-4 w-full py-8 bg-white text-black rounded-[40px] transition-all active:scale-95 shadow-[0_20px_60px_rgba(255,255,255,0.2)]"
           >
             <BellOff className="w-10 h-10" />
@@ -126,7 +141,7 @@ export const ActiveAlarmOverlay: React.FC<ActiveAlarmOverlayProps> = ({ alarm, s
 
           {alarm.snoozeSeconds > 0 && (
             <button
-              onClick={onSnooze}
+              onClick={handleSnooze}
               className="flex items-center justify-center gap-3 w-full py-6 bg-slate-900/50 backdrop-blur-md text-slate-300 border border-slate-700/50 rounded-[40px] transition-all active:scale-95"
             >
               <Timer className="w-7 h-7" />
