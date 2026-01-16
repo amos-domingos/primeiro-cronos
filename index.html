@@ -30,9 +30,9 @@
     <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.344.0",
+    "react": "./lib/react.js",
+    "react-dom/client": "./lib/react-dom.js",
+    "lucide-react": "./lib/lucide.js",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/"
   }
@@ -40,7 +40,7 @@
 </script>
 
     <script>
-      // Mock do Android para o preview não travar
+      // Ponte de segurança para o Android
       if (!window.AndroidAlarm) {
         window.AndroidAlarm = {
           scheduleAlarm: (time, label) => console.log("Agendado:", label, new Date(time)),

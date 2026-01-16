@@ -1,3 +1,4 @@
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -38,8 +39,8 @@ android {
 
     sourceSets {
         getByName("main") {
-            // Unificado: Agora aponta para a pasta onde seus arquivos web realmente vivem
-            assets.srcDirs(".", "src/main/assets")
+            // Caminho padrão para localizar os arquivos dentro de src/main/assets
+            assets.srcDirs("src/main/assets")
         }
     }
 }
